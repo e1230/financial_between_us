@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="3.5 5.5 393 393" width="1024" height="1024">
+  <path d="M 140,148 Q 200,104 260,148" fill="none" stroke="#28DE4B" stroke-width="6" stroke-linecap="round"/>
+  <path d="M 260,272 Q 200,316 140,272" fill="none" stroke="#F2F2F2" stroke-width="6" stroke-linecap="round"/>
+  <polyline points="245,149 262,150 256,134" fill="none" stroke="#28DE4B" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="155,271 138,270 144,286" fill="none" stroke="#F2F2F2" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="128" cy="180" r="20" fill="#28DE4B"/>
+  <path d="M 92,250 C 92,224 108,210 128,210 C 148,210 164,224 164,250 Z" fill="#28DE4B"/>
+  <circle cx="272" cy="180" r="20" fill="#F2F2F2"/>
+  <path d="M 236,250 C 236,224 252,210 272,210 C 292,210 308,224 308,250 Z" fill="#F2F2F2"/>
+  <circle cx="200" cy="214" r="25" fill="#0A0A0A" stroke="#28DE4B" stroke-width="3"/>
+  <path d="M 200,198 L 200,230" fill="none" stroke="#28DE4B" stroke-width="4" stroke-linecap="round"/>
+  <path d="M 209,206 C 207,201 193,200 192,207 C 191,213 209,214 208,221 C 207,228 193,228 191,222" fill="none" stroke="#28DE4B" stroke-width="4.5" stroke-linecap="round"/>
+</svg>

@@ -1,28 +1,40 @@
-import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-import 'firebase_options.dart';
+import 'core/router/app_router.dart';
+import 'core/theme/app_theme.dart';
 
-Future<void> main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await dotenv.load(fileName: '.env');
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // Edge-to-edge: draw behind transparent status and gesture navigation bars.
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarContrastEnforced: false,
+      statusBarIconBrightness: Brightness.light,
+      systemNavigationBarIconBrightness: Brightness.light,
+    ),
+  );
 
-  runApp(const ProviderScope(child: MainApp()));
+  // Firebase and .env are loaded by `appStartupProvider` while the splash
+  // animation plays.
+  runApp(const ProviderScope(child: FbuApp()));
 }
 
-class MainApp extends StatelessWidget {
-  const MainApp({super.key});
+class FbuApp extends ConsumerWidget {
+  const FbuApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return const MaterialApp(
+  Widget build(BuildContext context, WidgetRef ref) {
+    return MaterialApp.router(
       title: 'Financial Between Us',
       debugShowCheckedModeBanner: false,
-      home: Scaffold(body: Center(child: Text('Hello World!'))),
+      theme: AppTheme.dark,
+      routerConfig: ref.watch(appRouterProvider),
     );
   }
 }
