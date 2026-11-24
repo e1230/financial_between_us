@@ -2,7 +2,15 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../../features/auth/presentation/welcome_placeholder_screen.dart';
+import '../../features/auth/presentation/auth_page_transition.dart';
+import '../../features/auth/presentation/auth_shell.dart';
+import '../../features/auth/presentation/background/auth_background_spec.dart';
+import '../../features/auth/presentation/screens/choose_username_screen.dart';
+import '../../features/auth/presentation/screens/login_screen.dart';
+import '../../features/auth/presentation/screens/recover_screen.dart';
+import '../../features/auth/presentation/screens/recover_sent_screen.dart';
+import '../../features/auth/presentation/screens/register_screen.dart';
+import '../../features/auth/presentation/screens/welcome_screen.dart';
 import '../../features/onboarding/presentation/walkthrough_screen.dart';
 import '../../features/splash/presentation/splash_screen.dart';
 import '../theme/app_tokens.dart';
@@ -15,7 +23,14 @@ abstract final class AppRoutes {
   static const String splash = '/splash';
   static const String home = '/home';
   static const String walkthrough = '/walkthrough';
-  static const String welcome = '/welcome';
+
+  // Auth (nested so the back stack follows the auth flow).
+  static const String welcome = '/auth';
+  static const String register = '/auth/register';
+  static const String login = '/auth/login';
+  static const String recover = '/auth/login/recover';
+  static const String recoverSent = '/auth/login/recover/sent';
+  static const String chooseUsername = '/auth/username';
 }
 
 @Riverpod(keepAlive: true)
@@ -43,16 +58,93 @@ GoRouter appRouter(Ref ref) {
           child: const WalkthroughScreen(),
         ),
       ),
+      authShellRoute(),
+    ],
+  );
+}
+
+/// Auth screens over one shared animated background. Sub-routes are nested
+/// so `go` builds the back stack of the flow (e.g. sent → recover → login →
+/// welcome). Public so tests can mount the flow without the splash.
+ShellRoute authShellRoute() {
+  return ShellRoute(
+    pageBuilder: (context, state, child) => _fadePage(
+      context: context,
+      state: state,
+      child: AuthShell(
+        variant: state.uri.path == AppRoutes.welcome
+            ? AuthBackgroundVariant.welcome
+            : AuthBackgroundVariant.form,
+        child: child,
+      ),
+    ),
+    routes: [
       GoRoute(
         path: AppRoutes.welcome,
-        pageBuilder: (context, state) => _fadePage(
+        pageBuilder: (context, state) => authPage(
           context: context,
           state: state,
-          child: const WelcomePlaceholderScreen(),
+          child: const WelcomeScreen(),
         ),
+        routes: [
+          GoRoute(
+            path: _child(AppRoutes.register, of: AppRoutes.welcome),
+            pageBuilder: (context, state) => authPage(
+              context: context,
+              state: state,
+              child: const RegisterScreen(),
+            ),
+          ),
+          GoRoute(
+            path: _child(AppRoutes.login, of: AppRoutes.welcome),
+            pageBuilder: (context, state) => authPage(
+              context: context,
+              state: state,
+              child: const LoginScreen(),
+            ),
+            routes: [
+              GoRoute(
+                path: _child(AppRoutes.recover, of: AppRoutes.login),
+                pageBuilder: (context, state) => authPage(
+                  context: context,
+                  state: state,
+                  child: const RecoverScreen(),
+                ),
+                routes: [
+                  GoRoute(
+                    path: _child(AppRoutes.recoverSent, of: AppRoutes.recover),
+                    pageBuilder: (context, state) => authPage(
+                      context: context,
+                      state: state,
+                      child: RecoverSentScreen(
+                        email: state.extra is String
+                            ? state.extra! as String
+                            : '',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          GoRoute(
+            path: _child(AppRoutes.chooseUsername, of: AppRoutes.welcome),
+            pageBuilder: (context, state) => authPage(
+              context: context,
+              state: state,
+              child: const ChooseUsernameScreen(),
+            ),
+          ),
+        ],
       ),
     ],
   );
+}
+
+/// Relative path of a nested route: `_child('/a/b', of: '/a')` → `b`.
+String _child(String path, {required String of}) {
+  assert(path.startsWith('$of/'), '$path is not under $of');
+  return path.substring(of.length + 1);
 }
 
 /// Cross-fade transition that honors `MediaQuery.disableAnimations`.

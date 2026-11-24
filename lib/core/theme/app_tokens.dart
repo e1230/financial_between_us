@@ -22,6 +22,11 @@ class AppTokens extends ThemeExtension<AppTokens> {
     required this.negative,
     required this.warning,
     required this.progressTrack,
+    required this.iconMuted,
+    required this.glowBright,
+    required this.glowMid,
+    required this.glowDeep,
+    required this.glowTeal,
     required this.brandBackground,
     required this.brandCoin,
     required this.space1,
@@ -33,6 +38,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
     required this.radiusCard,
     required this.radiusInput,
     required this.radiusPill,
+    required this.motionFast,
     required this.motionShort,
     required this.motionMedium,
     required this.headingFontFamily,
@@ -55,6 +61,11 @@ class AppTokens extends ThemeExtension<AppTokens> {
     negative: Color(0xFFFF5A5F),
     warning: Color(0xFFFFB020),
     progressTrack: Color(0x3DF2F2F2), // 24 %
+    iconMuted: Color(0xFF9A9A9A),
+    glowBright: Color(0xFF1E9E3A),
+    glowMid: Color(0xFF0E4F22),
+    glowDeep: Color(0xFF0A2814),
+    glowTeal: Color(0xFF0F3D3A),
     brandBackground: Color(0xFF000000),
     brandCoin: Color(0xFF0A0A0A),
     space1: 8,
@@ -66,6 +77,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
     radiusCard: 12,
     radiusInput: 12,
     radiusPill: 999,
+    motionFast: Duration(milliseconds: 150),
     motionShort: Duration(milliseconds: 200),
     motionMedium: Duration(milliseconds: 400),
     headingFontFamily: 'Satoshi',
@@ -94,6 +106,15 @@ class AppTokens extends ThemeExtension<AppTokens> {
   /// Unfilled track of progress bars.
   final Color progressTrack;
 
+  /// Inactive utility icons (e.g. the password eye).
+  final Color iconMuted;
+
+  // Animated auth background (radial glows over [background]).
+  final Color glowBright;
+  final Color glowMid;
+  final Color glowDeep;
+  final Color glowTeal;
+
   /// Pure black used by the native and animated splash.
   final Color brandBackground;
 
@@ -114,6 +135,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
   final double radiusPill;
 
   // Motion
+  final Duration motionFast;
   final Duration motionShort;
   final Duration motionMedium;
 
@@ -139,6 +161,11 @@ class AppTokens extends ThemeExtension<AppTokens> {
     Color? negative,
     Color? warning,
     Color? progressTrack,
+    Color? iconMuted,
+    Color? glowBright,
+    Color? glowMid,
+    Color? glowDeep,
+    Color? glowTeal,
     Color? brandBackground,
     Color? brandCoin,
     double? space1,
@@ -150,6 +177,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
     double? radiusCard,
     double? radiusInput,
     double? radiusPill,
+    Duration? motionFast,
     Duration? motionShort,
     Duration? motionMedium,
     String? headingFontFamily,
@@ -170,6 +198,11 @@ class AppTokens extends ThemeExtension<AppTokens> {
       negative: negative ?? this.negative,
       warning: warning ?? this.warning,
       progressTrack: progressTrack ?? this.progressTrack,
+      iconMuted: iconMuted ?? this.iconMuted,
+      glowBright: glowBright ?? this.glowBright,
+      glowMid: glowMid ?? this.glowMid,
+      glowDeep: glowDeep ?? this.glowDeep,
+      glowTeal: glowTeal ?? this.glowTeal,
       brandBackground: brandBackground ?? this.brandBackground,
       brandCoin: brandCoin ?? this.brandCoin,
       space1: space1 ?? this.space1,
@@ -181,6 +214,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
       radiusCard: radiusCard ?? this.radiusCard,
       radiusInput: radiusInput ?? this.radiusInput,
       radiusPill: radiusPill ?? this.radiusPill,
+      motionFast: motionFast ?? this.motionFast,
       motionShort: motionShort ?? this.motionShort,
       motionMedium: motionMedium ?? this.motionMedium,
       headingFontFamily: headingFontFamily ?? this.headingFontFamily,
@@ -209,6 +243,11 @@ class AppTokens extends ThemeExtension<AppTokens> {
       negative: c(negative, other.negative),
       warning: c(warning, other.warning),
       progressTrack: c(progressTrack, other.progressTrack),
+      iconMuted: c(iconMuted, other.iconMuted),
+      glowBright: c(glowBright, other.glowBright),
+      glowMid: c(glowMid, other.glowMid),
+      glowDeep: c(glowDeep, other.glowDeep),
+      glowTeal: c(glowTeal, other.glowTeal),
       brandBackground: c(brandBackground, other.brandBackground),
       brandCoin: c(brandCoin, other.brandCoin),
       space1: d(space1, other.space1),
@@ -220,6 +259,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
       radiusCard: d(radiusCard, other.radiusCard),
       radiusInput: d(radiusInput, other.radiusInput),
       radiusPill: d(radiusPill, other.radiusPill),
+      motionFast: pick.motionFast,
       motionShort: pick.motionShort,
       motionMedium: pick.motionMedium,
       headingFontFamily: pick.headingFontFamily,

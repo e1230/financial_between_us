@@ -38,6 +38,9 @@ flutter:
   assets:
     - .env
     - assets/images/onboarding/
+    - assets/images/auth/
+    # Official Google "G" (Google sign-in branding kit), 1x to 4x.
+    - assets/icons/
   fonts:
     # Brand typeface: only used by the logo (emblem rim text and wordmark).
     - family: SpaceGrotesk
