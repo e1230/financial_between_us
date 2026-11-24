@@ -30,6 +30,13 @@ key.properties
 .swiftpm/
 migrate_working_dir/
 
+# Local resources for upcoming modules/stages (see CLAUDE.md)
+/temp/
+
+# Satoshi's license (ITF FFL) forbids publishing the font in a repository.
+# Download it from fontshare.com (see CLAUDE.md).
+/assets/fonts/Satoshi-*
+
 # ---------------------------------------------------------------
 # IDEs
 # ---------------------------------------------------------------

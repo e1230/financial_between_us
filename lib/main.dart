@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'features/auth/data/sign_in_tracker.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,6 +31,8 @@ class FbuApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Keeps the "has ever signed in" flag in sync for the whole session.
+    ref.listen(signInTrackerProvider, (_, _) {});
     return MaterialApp.router(
       title: 'Financial Between Us',
       debugShowCheckedModeBanner: false,

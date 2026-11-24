@@ -2,6 +2,8 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../features/auth/presentation/welcome_placeholder_screen.dart';
+import '../../features/onboarding/presentation/walkthrough_screen.dart';
 import '../../features/splash/presentation/splash_screen.dart';
 import '../theme/app_tokens.dart';
 import 'home_placeholder_screen.dart';
@@ -12,6 +14,8 @@ part 'app_router.g.dart';
 abstract final class AppRoutes {
   static const String splash = '/splash';
   static const String home = '/home';
+  static const String walkthrough = '/walkthrough';
+  static const String welcome = '/welcome';
 }
 
 @Riverpod(keepAlive: true)
@@ -29,6 +33,22 @@ GoRouter appRouter(Ref ref) {
           context: context,
           state: state,
           child: const HomePlaceholderScreen(),
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.walkthrough,
+        pageBuilder: (context, state) => _fadePage(
+          context: context,
+          state: state,
+          child: const WalkthroughScreen(),
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.welcome,
+        pageBuilder: (context, state) => _fadePage(
+          context: context,
+          state: state,
+          child: const WelcomePlaceholderScreen(),
         ),
       ),
     ],

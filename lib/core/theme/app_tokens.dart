@@ -17,9 +17,11 @@ class AppTokens extends ThemeExtension<AppTokens> {
     required this.textSecondary,
     required this.textDisabled,
     required this.accent,
+    required this.accentPressed,
     required this.onAccent,
     required this.negative,
     required this.warning,
+    required this.progressTrack,
     required this.brandBackground,
     required this.brandCoin,
     required this.space1,
@@ -48,9 +50,11 @@ class AppTokens extends ThemeExtension<AppTokens> {
     textSecondary: Color(0x99F2F2F2), // 60 %
     textDisabled: Color(0x61F2F2F2), // 38 %
     accent: Color(0xFF28DE4B),
+    accentPressed: Color(0xFF22C443),
     onAccent: Color(0xFF111111),
     negative: Color(0xFFFF5A5F),
     warning: Color(0xFFFFB020),
+    progressTrack: Color(0x3DF2F2F2), // 24 %
     brandBackground: Color(0xFF000000),
     brandCoin: Color(0xFF0A0A0A),
     space1: 8,
@@ -79,10 +83,16 @@ class AppTokens extends ThemeExtension<AppTokens> {
   final Color textDisabled;
   final Color accent;
 
+  /// [accent] while a primary button is pressed.
+  final Color accentPressed;
+
   /// Text and icons on top of [accent]. Always `#111111`.
   final Color onAccent;
   final Color negative;
   final Color warning;
+
+  /// Unfilled track of progress bars.
+  final Color progressTrack;
 
   /// Pure black used by the native and animated splash.
   final Color brandBackground;
@@ -124,9 +134,11 @@ class AppTokens extends ThemeExtension<AppTokens> {
     Color? textSecondary,
     Color? textDisabled,
     Color? accent,
+    Color? accentPressed,
     Color? onAccent,
     Color? negative,
     Color? warning,
+    Color? progressTrack,
     Color? brandBackground,
     Color? brandCoin,
     double? space1,
@@ -153,9 +165,11 @@ class AppTokens extends ThemeExtension<AppTokens> {
       textSecondary: textSecondary ?? this.textSecondary,
       textDisabled: textDisabled ?? this.textDisabled,
       accent: accent ?? this.accent,
+      accentPressed: accentPressed ?? this.accentPressed,
       onAccent: onAccent ?? this.onAccent,
       negative: negative ?? this.negative,
       warning: warning ?? this.warning,
+      progressTrack: progressTrack ?? this.progressTrack,
       brandBackground: brandBackground ?? this.brandBackground,
       brandCoin: brandCoin ?? this.brandCoin,
       space1: space1 ?? this.space1,
@@ -190,9 +204,11 @@ class AppTokens extends ThemeExtension<AppTokens> {
       textSecondary: c(textSecondary, other.textSecondary),
       textDisabled: c(textDisabled, other.textDisabled),
       accent: c(accent, other.accent),
+      accentPressed: c(accentPressed, other.accentPressed),
       onAccent: c(onAccent, other.onAccent),
       negative: c(negative, other.negative),
       warning: c(warning, other.warning),
+      progressTrack: c(progressTrack, other.progressTrack),
       brandBackground: c(brandBackground, other.brandBackground),
       brandCoin: c(brandCoin, other.brandCoin),
       space1: d(space1, other.space1),

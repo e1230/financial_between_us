@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 and lower. Local preferences (e.g. the "has ever signed in"
+     flag that decides whether the walkthrough is shown) must not be restored
+     after a reinstall. -->
+<full-backup-content>
+    <!-- SharedPreferences backend (legacy SharedPreferences API). -->
+    <exclude domain="sharedpref" path="FlutterSharedPreferences.xml"/>
+    <!-- DataStore backend (default of SharedPreferencesAsync). -->
+    <exclude domain="file" path="datastore/FlutterSharedPreferences.preferences_pb"/>
+</full-backup-content>
