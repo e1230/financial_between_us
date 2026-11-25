@@ -29,6 +29,13 @@ class AppTokens extends ThemeExtension<AppTokens> {
     required this.glowTeal,
     required this.brandBackground,
     required this.brandCoin,
+    required this.positive,
+    required this.menuBackground,
+    required this.arcCutTop,
+    required this.arcCutBottom,
+    required this.tileGreenText,
+    required this.tileTealText,
+    required this.switchOffBorder,
     required this.space1,
     required this.space2,
     required this.space3,
@@ -38,6 +45,8 @@ class AppTokens extends ThemeExtension<AppTokens> {
     required this.radiusCard,
     required this.radiusInput,
     required this.radiusPill,
+    required this.radiusPanel,
+    required this.radiusDialog,
     required this.motionFast,
     required this.motionShort,
     required this.motionMedium,
@@ -68,6 +77,13 @@ class AppTokens extends ThemeExtension<AppTokens> {
     glowTeal: Color(0xFF0F3D3A),
     brandBackground: Color(0xFF000000),
     brandCoin: Color(0xFF0A0A0A),
+    positive: Color(0xFF28DE4B),
+    menuBackground: Color(0xFF0E0E0E),
+    arcCutTop: Color(0xFF0A0A0A),
+    arcCutBottom: Color(0xFF101010),
+    tileGreenText: Color(0xFF5FD47A),
+    tileTealText: Color(0xFF6FD1C7),
+    switchOffBorder: Color(0xFF6B6B6B),
     space1: 8,
     space2: 16,
     space3: 24,
@@ -77,6 +93,8 @@ class AppTokens extends ThemeExtension<AppTokens> {
     radiusCard: 12,
     radiusInput: 12,
     radiusPill: 999,
+    radiusPanel: 16,
+    radiusDialog: 24,
     motionFast: Duration(milliseconds: 150),
     motionShort: Duration(milliseconds: 200),
     motionMedium: Duration(milliseconds: 400),
@@ -121,6 +139,24 @@ class AppTokens extends ThemeExtension<AppTokens> {
   /// Fill of the coin in the logo emblem.
   final Color brandCoin;
 
+  /// Money in favor ("Te deben", incomes). Always the brand green: unlike
+  /// [accent] it is never replaced by the user's color.
+  final Color positive;
+
+  /// Background of the full-page avatar menu.
+  final Color menuBackground;
+
+  /// Vertical fill of the cut-out of the Home arc (top → bottom).
+  final Color arcCutTop;
+  final Color arcCutBottom;
+
+  // Text of the group mosaics (second and third color of the palette).
+  final Color tileGreenText;
+  final Color tileTealText;
+
+  /// Border of an "off" switch.
+  final Color switchOffBorder;
+
   // Spacing (multiples of 8)
   final double space1;
   final double space2;
@@ -133,6 +169,12 @@ class AppTokens extends ThemeExtension<AppTokens> {
   final double radiusCard;
   final double radiusInput;
   final double radiusPill;
+
+  /// Floating panels and popovers.
+  final double radiusPanel;
+
+  /// Dialogs (popups).
+  final double radiusDialog;
 
   // Motion
   final Duration motionFast;
@@ -168,6 +210,13 @@ class AppTokens extends ThemeExtension<AppTokens> {
     Color? glowTeal,
     Color? brandBackground,
     Color? brandCoin,
+    Color? positive,
+    Color? menuBackground,
+    Color? arcCutTop,
+    Color? arcCutBottom,
+    Color? tileGreenText,
+    Color? tileTealText,
+    Color? switchOffBorder,
     double? space1,
     double? space2,
     double? space3,
@@ -177,6 +226,8 @@ class AppTokens extends ThemeExtension<AppTokens> {
     double? radiusCard,
     double? radiusInput,
     double? radiusPill,
+    double? radiusPanel,
+    double? radiusDialog,
     Duration? motionFast,
     Duration? motionShort,
     Duration? motionMedium,
@@ -205,6 +256,13 @@ class AppTokens extends ThemeExtension<AppTokens> {
       glowTeal: glowTeal ?? this.glowTeal,
       brandBackground: brandBackground ?? this.brandBackground,
       brandCoin: brandCoin ?? this.brandCoin,
+      positive: positive ?? this.positive,
+      menuBackground: menuBackground ?? this.menuBackground,
+      arcCutTop: arcCutTop ?? this.arcCutTop,
+      arcCutBottom: arcCutBottom ?? this.arcCutBottom,
+      tileGreenText: tileGreenText ?? this.tileGreenText,
+      tileTealText: tileTealText ?? this.tileTealText,
+      switchOffBorder: switchOffBorder ?? this.switchOffBorder,
       space1: space1 ?? this.space1,
       space2: space2 ?? this.space2,
       space3: space3 ?? this.space3,
@@ -214,6 +272,8 @@ class AppTokens extends ThemeExtension<AppTokens> {
       radiusCard: radiusCard ?? this.radiusCard,
       radiusInput: radiusInput ?? this.radiusInput,
       radiusPill: radiusPill ?? this.radiusPill,
+      radiusPanel: radiusPanel ?? this.radiusPanel,
+      radiusDialog: radiusDialog ?? this.radiusDialog,
       motionFast: motionFast ?? this.motionFast,
       motionShort: motionShort ?? this.motionShort,
       motionMedium: motionMedium ?? this.motionMedium,
@@ -250,6 +310,13 @@ class AppTokens extends ThemeExtension<AppTokens> {
       glowTeal: c(glowTeal, other.glowTeal),
       brandBackground: c(brandBackground, other.brandBackground),
       brandCoin: c(brandCoin, other.brandCoin),
+      positive: c(positive, other.positive),
+      menuBackground: c(menuBackground, other.menuBackground),
+      arcCutTop: c(arcCutTop, other.arcCutTop),
+      arcCutBottom: c(arcCutBottom, other.arcCutBottom),
+      tileGreenText: c(tileGreenText, other.tileGreenText),
+      tileTealText: c(tileTealText, other.tileTealText),
+      switchOffBorder: c(switchOffBorder, other.switchOffBorder),
       space1: d(space1, other.space1),
       space2: d(space2, other.space2),
       space3: d(space3, other.space3),
@@ -259,6 +326,8 @@ class AppTokens extends ThemeExtension<AppTokens> {
       radiusCard: d(radiusCard, other.radiusCard),
       radiusInput: d(radiusInput, other.radiusInput),
       radiusPill: d(radiusPill, other.radiusPill),
+      radiusPanel: d(radiusPanel, other.radiusPanel),
+      radiusDialog: d(radiusDialog, other.radiusDialog),
       motionFast: pick.motionFast,
       motionShort: pick.motionShort,
       motionMedium: pick.motionMedium,

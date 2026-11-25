@@ -13,22 +13,31 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// In-memory [SharedPreferencesAsync] (only booleans are needed).
+/// In-memory [SharedPreferencesAsync] (booleans and strings).
 class FakeSharedPreferencesAsync extends Fake
     implements SharedPreferencesAsync {
-  FakeSharedPreferencesAsync([Map<String, bool>? values])
+  FakeSharedPreferencesAsync([Map<String, Object>? values])
     : values = {...?values};
 
-  final Map<String, bool> values;
+  final Map<String, Object> values;
 
   /// Keys written, in order.
   final List<String> writes = [];
 
   @override
-  Future<bool?> getBool(String key) async => values[key];
+  Future<bool?> getBool(String key) async => values[key] as bool?;
 
   @override
   Future<void> setBool(String key, bool value) async {
+    writes.add(key);
+    values[key] = value;
+  }
+
+  @override
+  Future<String?> getString(String key) async => values[key] as String?;
+
+  @override
+  Future<void> setString(String key, String value) async {
     writes.add(key);
     values[key] = value;
   }

@@ -79,5 +79,178 @@ service cloud.firestore {
       // Nothing is physically deleted (soft delete with `deletedAt`).
       allow delete: if false;
     }
+
+    // ---------------------------------------------------------------
+    // groupCodes/{code} → { gid, name, hasPassword, requiresApproval,
+    //                       salt, createdAt }
+    // Unique join codes. Whoever knows a code can read its entry (to join),
+    // but nobody can list them.
+    // ---------------------------------------------------------------
+    match /groupCodes/{code} {
+      allow get: if signedIn();
+      allow list: if false;
+      // Only together with the creation of its group (same transaction).
+      allow create: if signedIn()
+        && code.matches('^[A-Z]{3}-[A-HJ-NP-Z2-9]{4}$')
+        && request.resource.data.keys().hasOnly(
+             ['gid', 'name', 'hasPassword', 'requiresApproval', 'salt', 'createdAt'])
+        && request.resource.data.createdAt == request.time
+        && !exists(/databases/$(database)/documents/groups/$(request.resource.data.gid))
+        && getAfter(/databases/$(database)/documents/groups/$(request.resource.data.gid)).data.ownerUid == request.auth.uid
+        && getAfter(/databases/$(database)/documents/groups/$(request.resource.data.gid)).data.code == code
+        && request.resource.data.name == getAfter(/databases/$(database)/documents/groups/$(request.resource.data.gid)).data.name
+        && request.resource.data.hasPassword == getAfter(/databases/$(database)/documents/groups/$(request.resource.data.gid)).data.hasPassword
+        && request.resource.data.requiresApproval == getAfter(/databases/$(database)/documents/groups/$(request.resource.data.gid)).data.requiresApproval
+        && (request.resource.data.hasPassword
+              ? request.resource.data.salt is string
+              : request.resource.data.salt == null);
+      allow update, delete: if false;
+    }
+
+    // ---------------------------------------------------------------
+    // groups/{groupId}
+    //   members: [uid] (active)   pendingMembers: [uid] (awaiting approval)
+    // ---------------------------------------------------------------
+    match /groups/{groupId} {
+      function groupPath() {
+        return /databases/$(database)/documents/groups/$(groupId);
+      }
+
+      function memberPath(uid) {
+        return /databases/$(database)/documents/groups/$(groupId)/members/$(uid);
+      }
+
+      function isActiveMember() {
+        return signedIn() && request.auth.uid in get(groupPath()).data.members;
+      }
+
+      // The group did not exist before this request (creation batch).
+      function isBeingCreatedBy(uid) {
+        return !exists(groupPath())
+          && getAfter(groupPath()).data.ownerUid == uid;
+      }
+
+      function validNewGroup(d) {
+        return d.keys().hasOnly(['name', 'code', 'ownerUid', 'requiresApproval',
+                                 'hasPassword', 'members', 'pendingMembers',
+                                 'createdAt', 'updatedAt', 'deletedAt'])
+          && d.name is string
+          && d.name.trim().size() >= 3
+          && d.name.size() <= 40
+          && d.ownerUid == request.auth.uid
+          && d.members == [request.auth.uid]
+          && d.pendingMembers == []
+          && d.requiresApproval is bool
+          && d.hasPassword is bool
+          && d.hasPassword == existsAfter(/databases/$(database)/documents/groups/$(groupId)/secrets/password)
+          && getAfter(/databases/$(database)/documents/groupCodes/$(d.code)).data.gid == groupId
+          && getAfter(memberPath(request.auth.uid)).data.role == 'admin'
+          && d.createdAt == request.time
+          && d.updatedAt == request.time
+          && d.deletedAt == null;
+      }
+
+      // Joining: the caller appends only themselves to `members` (no
+      // approval needed) or to `pendingMembers`, matching the member
+      // document written in the same batch.
+      function validJoin() {
+        let before = resource.data;
+        let after = request.resource.data;
+        let status = getAfter(memberPath(request.auth.uid)).data.status;
+        return after.diff(before).affectedKeys().hasOnly(['members', 'pendingMembers', 'updatedAt'])
+          && after.updatedAt == request.time
+          && !(request.auth.uid in before.members)
+          && !(request.auth.uid in before.pendingMembers)
+          && (status == 'active'
+              ? after.members == before.members.concat([request.auth.uid])
+                && after.pendingMembers == before.pendingMembers
+              : after.pendingMembers == before.pendingMembers.concat([request.auth.uid])
+                && after.members == before.members);
+      }
+
+      // Active and pending members see the group (pending ones see its
+      // name and size in the selector).
+      allow read: if signedIn()
+        && (request.auth.uid in resource.data.members
+            || request.auth.uid in resource.data.pendingMembers);
+      allow create: if signedIn() && validNewGroup(request.resource.data);
+      allow update: if signedIn() && validJoin();
+      // TODO: approve or reject members, rename, soft delete (group
+      // management module).
+      allow delete: if false;
+
+      // groups/{groupId}/members/{uid} → { role, status, joinedAt }
+      match /members/{uid} {
+        function validMember(role, status) {
+          return request.resource.data.keys().hasOnly(['role', 'status', 'joinedAt'])
+            && request.resource.data.role == role
+            && request.resource.data.status == status
+            && request.resource.data.joinedAt == request.time;
+        }
+
+        function passwordMatches() {
+          let group = get(groupPath()).data;
+          return !group.hasPassword
+            || getAfter(/databases/$(database)/documents/groups/$(groupId)/joinProofs/$(uid)).data.hash
+               == get(/databases/$(database)/documents/groups/$(groupId)/secrets/password).data.hash;
+        }
+
+        allow get: if isOwner(uid) || isActiveMember();
+        allow list: if isActiveMember();
+        allow create: if isOwner(uid) && (
+          // The creator, while creating the group.
+          (isBeingCreatedBy(uid) && validMember('admin', 'active'))
+          // Anyone with the code: a plain member, pending if the group
+          // requires approval, and only with the right password.
+          || (exists(groupPath())
+              && validMember('member',
+                   get(groupPath()).data.requiresApproval ? 'pending' : 'active')
+              && passwordMatches()
+              && getAfter(groupPath()).data.updatedAt == request.time)
+        );
+        // TODO: approval and roles (group management module).
+        allow update, delete: if false;
+      }
+
+      // groups/{groupId}/secrets/password → { hash }
+      // Salted SHA-256 of the group password. Never readable: only the
+      // rules compare it.
+      match /secrets/{doc} {
+        allow read: if false;
+        allow create: if signedIn()
+          && doc == 'password'
+          && isBeingCreatedBy(request.auth.uid)
+          && request.resource.data.keys().hasOnly(['hash'])
+          && request.resource.data.hash is string;
+        allow update, delete: if false;
+      }
+
+      // groups/{groupId}/joinProofs/{uid} → { hash }
+      // Hash of the password a user typed to join. Never readable.
+      match /joinProofs/{uid} {
+        allow read: if false;
+        // Only in the batch that joins (a lone proof would lock the user
+        // out, since it can never be rewritten).
+        allow create: if isOwner(uid)
+          && exists(groupPath())
+          && !exists(memberPath(uid))
+          && existsAfter(memberPath(uid))
+          && request.resource.data.keys().hasOnly(['hash'])
+          && request.resource.data.hash is string;
+        allow update, delete: if false;
+      }
+
+      // groups/{groupId}/auditLog/{logId}: write-only change log.
+      match /auditLog/{logId} {
+        allow read: if isActiveMember();
+        allow create: if signedIn()
+          && request.resource.data.keys().hasOnly(
+               ['action', 'entity', 'entityId', 'before', 'after', 'uid', 'timestamp'])
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.timestamp == request.time
+          && existsAfter(memberPath(request.auth.uid));
+        allow update, delete: if false;
+      }
+    }
   }
 }

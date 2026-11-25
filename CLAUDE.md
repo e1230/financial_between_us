@@ -30,7 +30,9 @@ lib/
   features/
     auth/        # data / domain / presentation
     onboarding/
-    groups/
+    profile/
+    groups/      # crear, unirse, grupo activo
+    home/        # shell con barra inferior, Home, menú del avatar
     outings/
     balances/
 ```
@@ -42,14 +44,23 @@ lib/
 ## Modelo de datos (Firestore)
 
 ```
-users/{uid}
-groups/{groupId}                 members: [uid]
+users/{uid}                      displayName, nickname, email, photoUrl, color (#RRGGBB), …
+nicknames/{nickname}             uid, email
+groupCodes/{code}                gid, name, hasPassword, requiresApproval, salt   (código LIQ-7K4P, único)
+groups/{groupId}                 name, code, ownerUid, requiresApproval, hasPassword,
+                                 members: [uid] (activos), pendingMembers: [uid]
+  members/{uid}                  role (admin|member), status (active|pending), joinedAt
+  secrets/password               hash (SHA-256 con sal; nunca legible desde la app)
+  joinProofs/{uid}               hash que envía quien se une (las reglas lo comparan)
   outings/{outingId}             fecha, lugar, totalCOP, propinaPct, fotoUrl, createdBy
     items/{itemId}               descripción, valorCOP, consumidores {uid: partes}
     payments/{paymentId}         quién pagó y cuánto
   settlements/{id}               abonos entre miembros
   auditLog/{logId}               acción, entidad, antes/después, uid, timestamp
 ```
+
+- El grupo activo del Home se guarda por dispositivo en `SharedPreferences` (`fbu.selected_group_id`).
+- La aprobación de miembros pendientes llegará con la gestión de grupos (las reglas aún no permiten aprobar).
 
 ## Reglas de negocio (no negociables)
 

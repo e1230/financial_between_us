@@ -12,19 +12,40 @@ import '../../features/auth/presentation/screens/recover_screen.dart';
 import '../../features/auth/presentation/screens/recover_sent_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/auth/presentation/screens/welcome_screen.dart';
+import '../../features/home/presentation/home_metrics.dart';
+import '../../features/home/presentation/home_screen.dart';
+import '../../features/home/presentation/home_shell.dart';
+import '../../features/home/presentation/home_strings.dart';
+import '../../features/home/presentation/menu/avatar_menu_screen.dart';
 import '../../features/onboarding/presentation/walkthrough_screen.dart';
 import '../../features/profile/presentation/complete_profile_screen.dart';
 import '../../features/splash/presentation/splash_screen.dart';
 import '../theme/app_tokens.dart';
-import 'home_placeholder_screen.dart';
+import '../widgets/pending_screen.dart';
 
 part 'app_router.g.dart';
 
 /// Route paths of the app.
 abstract final class AppRoutes {
   static const String splash = '/splash';
-  static const String home = '/home';
   static const String walkthrough = '/walkthrough';
+
+  // Tabs of the signed-in shell.
+  static const String home = '/home';
+  static const String events = '/events';
+  static const String balances = '/balances';
+  static const String profile = '/profile';
+
+  // Pages over the shell (no bottom bar).
+  static const String menu = '/menu';
+  static const String accounts = '/accounts';
+  static const String groups = '/groups';
+  static const String profileSettings = '/profile/settings';
+  static const String newEvent = '/events/new';
+  static const String newMovement = '/movements/new';
+  static const String newIncome = '/movements/new/income';
+  static const String newPayment = '/movements/new/payment';
+  static const String newDebt = '/movements/new/debt';
 
   // Auth (nested so the back stack follows the auth flow).
   static const String welcome = '/auth';
@@ -47,23 +68,23 @@ abstract final class AppRoutes {
       };
 }
 
+/// Navigator of the whole app; pages over the shell are pushed here.
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>(
+  debugLabel: 'root',
+);
+
 @Riverpod(keepAlive: true)
 GoRouter appRouter(Ref ref) {
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: AppRoutes.splash,
     routes: [
       GoRoute(
         path: AppRoutes.splash,
         builder: (context, state) => const SplashScreen(),
       ),
-      GoRoute(
-        path: AppRoutes.home,
-        pageBuilder: (context, state) => _fadePage(
-          context: context,
-          state: state,
-          child: const HomePlaceholderScreen(),
-        ),
-      ),
+      homeShellRoute(),
+      ...overShellRoutes(),
       GoRoute(
         path: AppRoutes.walkthrough,
         pageBuilder: (context, state) => _fadePage(
@@ -161,6 +182,133 @@ ShellRoute authShellRoute() {
         ),
       ),
     ],
+  );
+}
+
+/// The signed-in shell: Inicio, Eventos, Saldos and Perfil, each keeping
+/// its state, over the bottom bar. Public so tests can mount it.
+StatefulShellRoute homeShellRoute() {
+  return StatefulShellRoute.indexedStack(
+    pageBuilder: (context, state, navigationShell) => _fadePage(
+      context: context,
+      state: state,
+      child: HomeShell(navigationShell: navigationShell),
+    ),
+    branches: [
+      StatefulShellBranch(
+        routes: [
+          GoRoute(
+            path: AppRoutes.home,
+            builder: (context, state) => const HomeScreen(),
+          ),
+        ],
+      ),
+      StatefulShellBranch(
+        routes: [
+          GoRoute(
+            path: AppRoutes.events,
+            builder: (context, state) =>
+                const PendingScreen(name: HomeStrings.tabEvents),
+            routes: [
+              _pending(
+                _child(AppRoutes.newEvent, of: AppRoutes.events),
+                HomeStrings.addEvent,
+              ),
+            ],
+          ),
+        ],
+      ),
+      StatefulShellBranch(
+        routes: [
+          GoRoute(
+            path: AppRoutes.balances,
+            builder: (context, state) =>
+                const PendingScreen(name: HomeStrings.tabBalances),
+          ),
+        ],
+      ),
+      StatefulShellBranch(
+        routes: [
+          GoRoute(
+            path: AppRoutes.profile,
+            builder: (context, state) =>
+                const PendingScreen(name: HomeStrings.tabProfile),
+            routes: [
+              _pending(
+                _child(AppRoutes.profileSettings, of: AppRoutes.profile),
+                HomeStrings.profileSettings,
+              ),
+            ],
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
+/// Pages that cover the shell: the avatar menu and the screens of future
+/// modules. Public so tests can mount them.
+List<RouteBase> overShellRoutes() => [
+  GoRoute(
+    path: AppRoutes.menu,
+    parentNavigatorKey: rootNavigatorKey,
+    pageBuilder: (context, state) => _menuPage(context, state),
+  ),
+  _pending(AppRoutes.accounts, HomeStrings.accounts),
+  _pending(AppRoutes.groups, HomeStrings.menuGroups),
+  GoRoute(
+    path: AppRoutes.newMovement,
+    parentNavigatorKey: rootNavigatorKey,
+    builder: (context, state) =>
+        const PendingScreen(name: HomeStrings.addMovement),
+    routes: [
+      _pending(
+        _child(AppRoutes.newIncome, of: AppRoutes.newMovement),
+        HomeStrings.addIncome,
+      ),
+      _pending(
+        _child(AppRoutes.newPayment, of: AppRoutes.newMovement),
+        HomeStrings.addPayment,
+      ),
+      _pending(
+        _child(AppRoutes.newDebt, of: AppRoutes.newMovement),
+        HomeStrings.addDebt,
+      ),
+    ],
+  ),
+];
+
+/// A page of a future module, over the shell.
+// TODO: replace each one with its screen when the module is built.
+GoRoute _pending(String path, String name) => GoRoute(
+  path: path,
+  parentNavigatorKey: rootNavigatorKey,
+  builder: (context, state) => PendingScreen(name: name),
+);
+
+/// The avatar menu: 450 ms, during which the avatar flies as a Hero and the
+/// page fades in. With `MediaQuery.disableAnimations`, a 150 ms fade.
+CustomTransitionPage<void> _menuPage(
+  BuildContext context,
+  GoRouterState state,
+) {
+  final reduceMotion = MediaQuery.disableAnimationsOf(context);
+  final duration = reduceMotion
+      ? HomeMetrics.reducedMotionFade
+      : HomeMetrics.menuTransition;
+  return CustomTransitionPage<void>(
+    key: state.pageKey,
+    child: const AvatarMenuScreen(),
+    transitionDuration: duration,
+    reverseTransitionDuration: duration,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+        FadeTransition(
+          opacity: CurvedAnimation(
+            parent: animation,
+            curve: Curves.fastOutSlowIn,
+          ),
+          child: child,
+        ),
   );
 }
 

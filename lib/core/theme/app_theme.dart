@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../utils/accent_color.dart';
 import 'app_tokens.dart';
+import 'user_palette.dart';
 
 /// Builds the app [ThemeData] from [AppTokens].
 abstract final class AppTheme {
@@ -9,7 +10,8 @@ abstract final class AppTheme {
 
   /// [dark] with the accent color chosen by the user in their profile. The
   /// base tokens do not change; only [AppTokens.accent] and
-  /// [AppTokens.accentPressed] are replaced.
+  /// [AppTokens.accentPressed] are replaced, and the [UserPalette] follows
+  /// [accent]. [AppTokens.positive] stays the brand green.
   static ThemeData withAccent(Color accent) {
     if (accent == AppTokens.dark.accent) return dark;
     return _build(
@@ -62,7 +64,8 @@ abstract final class AppTheme {
       dividerColor: t.border,
       fontFamily: t.bodyFontFamily,
       textTheme: _textTheme(t),
-      extensions: <ThemeExtension<dynamic>>[t],
+      // The accent is the user's color, so the user palette derives from it.
+      extensions: <ThemeExtension<dynamic>>[t, UserPalette.fromColor(t.accent)],
       cardTheme: CardThemeData(
         color: t.surface,
         elevation: 0,
