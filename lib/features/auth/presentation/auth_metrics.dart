@@ -77,7 +77,4 @@ abstract final class AuthMetrics {
 
   /// Countdown before the reset email can be sent again.
   static const Duration resendCooldown = Duration(seconds: 45);
-
-  /// Fake latency of the auth requests while the module is visual only.
-  static const Duration simulatedRequest = Duration(milliseconds: 1500);
 }

@@ -21,6 +21,7 @@ class FbuTextField extends StatefulWidget {
     this.hint,
     this.helperText,
     this.errorText,
+    this.hasError = false,
     this.isPassword = false,
     this.enabled = true,
     this.keyboardType,
@@ -39,6 +40,10 @@ class FbuTextField extends StatefulWidget {
   final String? hint;
   final String? helperText;
   final String? errorText;
+
+  /// Red border without a message of its own (the message is elsewhere,
+  /// e.g. wrong credentials in the banner). Implied by [errorText].
+  final bool hasError;
   final bool isPassword;
   final bool enabled;
   final TextInputType? keyboardType;
@@ -86,7 +91,7 @@ class _FbuTextFieldState extends State<FbuTextField> {
     final styles = AuthTextStyles.of(context);
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     final fast = reduceMotion ? Duration.zero : tokens.motionFast;
-    final hasError = widget.errorText != null;
+    final hasError = widget.errorText != null || widget.hasError;
     final focused = widget.focusNode.hasFocus;
 
     final accentColor = hasError
@@ -190,7 +195,7 @@ class _FbuTextFieldState extends State<FbuTextField> {
         ),
         _FieldMessage(
           message: message,
-          isError: hasError,
+          isError: widget.errorText != null,
           duration: reduceMotion ? Duration.zero : tokens.motionShort,
         ),
       ],

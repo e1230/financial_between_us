@@ -1,0 +1,83 @@
+rules_version = '2';
+
+// Security rules of Financial Between Us.
+// Publish them with `firebase deploy --only firestore:rules` (or paste them
+// in Firebase Console → Firestore → Rules).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    // ---------------------------------------------------------------
+    // nicknames/{nickname} → { uid, email }
+    // Unique nickname index; also used to sign in with the nickname.
+    // ---------------------------------------------------------------
+    match /nicknames/{nickname} {
+      // Needed to sign in with a nickname (before there is a session).
+      // Note: whoever knows a nickname can read its email. Acceptable for a
+      // group of up to 10 friends; the private alternative is a Cloud
+      // Function (Blaze plan).
+      allow get: if true;
+      allow list: if false;
+      allow create: if signedIn()
+        && nickname.matches('^[a-z0-9_.]{3,20}$')
+        && request.resource.data.keys().hasOnly(['uid', 'email'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email;
+      // A nickname never changes hands.
+      allow update, delete: if false;
+    }
+
+    // ---------------------------------------------------------------
+    // users/{uid}
+    // ---------------------------------------------------------------
+    match /users/{uid} {
+      function profileKeys() {
+        return ['displayName', 'nickname', 'email', 'photoUrl', 'color',
+                'profileCompleted', 'createdAt', 'updatedAt', 'deletedAt'];
+      }
+
+      function validProfile(d) {
+        return d.keys().hasOnly(profileKeys())
+          && d.displayName is string
+          && d.displayName.size() > 0
+          && d.displayName.size() <= 40
+          && d.email is string
+          && (d.photoUrl == null
+              || (d.photoUrl is string
+                  && d.photoUrl.matches('^https://res[.]cloudinary[.]com/.+')))
+          && d.color is string
+          && d.color.matches('^#[0-9A-Fa-f]{6}$')
+          && d.profileCompleted is bool;
+      }
+
+      // Friends see each other's nickname, name, photo and color.
+      allow read: if signedIn();
+
+      allow create: if isOwner(uid)
+        && validProfile(request.resource.data)
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.profileCompleted == false
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.deletedAt == null
+        // Created in the same transaction that reserves the nickname.
+        && getAfter(/databases/$(database)/documents/nicknames/$(request.resource.data.nickname)).data.uid == uid;
+
+      allow update: if isOwner(uid)
+        && validProfile(request.resource.data)
+        && request.resource.data.diff(resource.data).unchangedKeys()
+             .hasAll(['nickname', 'email', 'createdAt', 'deletedAt'])
+        && request.resource.data.updatedAt == request.time;
+
+      // Nothing is physically deleted (soft delete with `deletedAt`).
+      allow delete: if false;
+    }
+  }
+}

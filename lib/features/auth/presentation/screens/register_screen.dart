@@ -1,14 +1,18 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/widgets/fbu_primary_button.dart';
+import '../../data/auth_repository.dart';
+import '../../domain/auth_failure.dart';
 import '../../domain/auth_validators.dart';
 import '../auth_form.dart';
 import '../auth_metrics.dart';
 import '../auth_strings.dart';
 import '../auth_text_styles.dart';
+import '../google_sign_in_action.dart';
 import '../widgets/auth_banner.dart';
 import '../widgets/auth_link.dart';
 import '../widgets/auth_scaffold.dart';
@@ -18,14 +22,14 @@ import '../widgets/or_divider.dart';
 import '../widgets/shake.dart';
 
 /// Sign-up with username, email and password.
-class RegisterScreen extends StatefulWidget {
+class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
 
   @override
-  State<RegisterScreen> createState() => _RegisterScreenState();
+  ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen>
+class _RegisterScreenState extends ConsumerState<RegisterScreen>
     with AuthFormMixin<RegisterScreen> {
   final _username = AuthFieldState(
     field: AuthField.username,
@@ -43,6 +47,9 @@ class _RegisterScreenState extends State<RegisterScreen>
   /// Form-level error (Firebase), shown where a subtitle would be.
   String? _banner;
 
+  /// The running request is Google's (the main button shows no spinner).
+  bool _viaGoogle = false;
+
   @override
   List<AuthFieldState> get fields => [_username, _email, _password];
 
@@ -50,13 +57,48 @@ class _RegisterScreenState extends State<RegisterScreen>
     if (busy || !validateAll()) return;
     setState(() => _banner = null);
     await runBusy(() async {
-      // TODO: check the username, create the account and reserve the
-      // username in a transaction (handoff section 6.2).
-      await simulateAuthRequest();
-      if (!mounted) return;
-      finishAutofill();
-      context.go(AppRoutes.home);
+      try {
+        final destination = await ref
+            .read(authRepositoryProvider)
+            .register(
+              nickname: _username.text,
+              email: _email.text,
+              password: _password.text,
+            );
+        if (!mounted) return;
+        finishAutofill();
+        context.go(AppRoutes.forSession(destination));
+      } on AuthFailure catch (failure) {
+        if (mounted) _showFailure(failure);
+      }
     });
+  }
+
+  void _showFailure(AuthFailure failure) {
+    final message = AuthStrings.authFailure(failure);
+    switch (failure) {
+      case NicknameTaken():
+        showFieldError(_username, message);
+      case EmailAlreadyInUse():
+        showFieldError(_email, message);
+      case WeakPassword():
+        showFieldError(_password, message);
+      default:
+        setState(() => _banner = message);
+    }
+  }
+
+  Future<void> _google() async {
+    if (busy) return;
+    setState(() {
+      _banner = null;
+      _viaGoogle = true;
+    });
+    await runBusy(() async {
+      final error = await continueWithGoogle(context, ref);
+      if (mounted) setState(() => _banner = error);
+    });
+    if (mounted) setState(() => _viaGoogle = false);
   }
 
   @override
@@ -131,7 +173,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         SizedBox(height: tokens.space3),
         FbuPrimaryButton(
           onPressed: _submit,
-          isLoading: busy,
+          isLoading: busy && !_viaGoogle,
           loadingSemanticsLabel: AuthStrings.creatingAccount,
           child: const Text(AuthStrings.createAccount),
         ),
@@ -141,10 +183,7 @@ class _RegisterScreenState extends State<RegisterScreen>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const OrDivider(),
-              // TODO: Google sign-in; the first time it asks for a username.
-              GoogleButton(
-                onPressed: () => context.go(AppRoutes.chooseUsername),
-              ),
+              GoogleButton(onPressed: _google, isLoading: _viaGoogle),
               SizedBox(height: tokens.space1),
               AuthFooter(
                 prompt: AuthStrings.registerFooter,

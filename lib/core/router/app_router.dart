@@ -2,6 +2,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../features/auth/domain/session_destination.dart';
 import '../../features/auth/presentation/auth_page_transition.dart';
 import '../../features/auth/presentation/auth_shell.dart';
 import '../../features/auth/presentation/background/auth_background_spec.dart';
@@ -12,6 +13,7 @@ import '../../features/auth/presentation/screens/recover_sent_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/auth/presentation/screens/welcome_screen.dart';
 import '../../features/onboarding/presentation/walkthrough_screen.dart';
+import '../../features/profile/presentation/complete_profile_screen.dart';
 import '../../features/splash/presentation/splash_screen.dart';
 import '../theme/app_tokens.dart';
 import 'home_placeholder_screen.dart';
@@ -31,6 +33,18 @@ abstract final class AppRoutes {
   static const String recover = '/auth/login/recover';
   static const String recoverSent = '/auth/login/recover/sent';
   static const String chooseUsername = '/auth/username';
+
+  /// Optional profile data after signing up. Outside `/auth`, so back never
+  /// returns to the sign-in screens.
+  static const String completeProfile = '/profile/complete';
+
+  /// Route of a signed-in user's [SessionDestination].
+  static String forSession(SessionDestination destination) =>
+      switch (destination) {
+        SessionDestination.home => home,
+        SessionDestination.chooseNickname => chooseUsername,
+        SessionDestination.completeProfile => completeProfile,
+      };
 }
 
 @Riverpod(keepAlive: true)
@@ -63,9 +77,10 @@ GoRouter appRouter(Ref ref) {
   );
 }
 
-/// Auth screens over one shared animated background. Sub-routes are nested
-/// so `go` builds the back stack of the flow (e.g. sent → recover → login →
-/// welcome). Public so tests can mount the flow without the splash.
+/// Auth screens (and "Completa tu perfil") over one shared animated
+/// background. Sub-routes are nested so `go` builds the back stack of the
+/// flow (e.g. sent → recover → login → welcome). Public so tests can mount
+/// the flow without the splash.
 ShellRoute authShellRoute() {
   return ShellRoute(
     pageBuilder: (context, state, child) => _fadePage(
@@ -136,6 +151,14 @@ ShellRoute authShellRoute() {
             ),
           ),
         ],
+      ),
+      GoRoute(
+        path: AppRoutes.completeProfile,
+        pageBuilder: (context, state) => authPage(
+          context: context,
+          state: state,
+          child: const CompleteProfileScreen(),
+        ),
       ),
     ],
   );

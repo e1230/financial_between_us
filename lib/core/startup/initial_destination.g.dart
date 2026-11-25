@@ -9,11 +9,17 @@ part of 'initial_destination.dart';
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
 /// Resolves [InitialDestination] after [appStartup], while the splash plays.
+///
+/// With a session it reads `users/{uid}` (from the cache when offline); if
+/// that fails the splash shows its error state with a retry button.
 
 @ProviderFor(initialDestination)
 final initialDestinationProvider = InitialDestinationProvider._();
 
 /// Resolves [InitialDestination] after [appStartup], while the splash plays.
+///
+/// With a session it reads `users/{uid}` (from the cache when offline); if
+/// that fails the splash shows its error state with a retry button.
 
 final class InitialDestinationProvider
     extends
@@ -26,6 +32,9 @@ final class InitialDestinationProvider
         $FutureModifier<InitialDestination>,
         $FutureProvider<InitialDestination> {
   /// Resolves [InitialDestination] after [appStartup], while the splash plays.
+  ///
+  /// With a session it reads `users/{uid}` (from the cache when offline); if
+  /// that fails the splash shows its error state with a retry button.
   InitialDestinationProvider._()
     : super(
         from: null,
@@ -53,4 +62,4 @@ final class InitialDestinationProvider
 }
 
 String _$initialDestinationHash() =>
-    r'139fa8888f8eb284ad546bd31dbf17c9b1387b37';
+    r'6793facacc924dcd0ab858e4597c8ae6cfcab307';

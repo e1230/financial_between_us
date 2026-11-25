@@ -75,6 +75,63 @@ class LayerKeyframe {
   final LayerPose pose;
 }
 
+/// Circular motion of a glow spot around its anchor, clockwise on screen.
+///
+/// Its intensity also pulses with the orbit: strongest at the right-most
+/// point, weakest at the left-most one. Two spots half a turn apart
+/// therefore swap places and dominance once per cycle.
+class GlowOrbit {
+  const GlowOrbit({
+    required this.radiusX,
+    required this.radiusY,
+    required this.cycleSeconds,
+    this.phase = 0,
+    this.pulse = 0,
+  });
+
+  /// Radii as fractions of the screen width and height.
+  final double radiusX;
+  final double radiusY;
+  final double cycleSeconds;
+
+  /// Starting point as a fraction of a turn (0.5 = opposite side).
+  final double phase;
+
+  /// Intensity swing: alphas are multiplied by `1 ± pulse`.
+  final double pulse;
+
+  double _angle(double seconds) =>
+      2 * math.pi * (seconds / cycleSeconds + phase);
+
+  /// Offset from the anchor, as fractions of the screen.
+  Offset offsetAt(double seconds) {
+    final angle = _angle(seconds);
+    return Offset(radiusX * math.cos(angle), radiusY * math.sin(angle));
+  }
+
+  /// Alpha multiplier at [seconds].
+  double intensityAt(double seconds) => 1 + pulse * math.cos(_angle(seconds));
+}
+
+/// Where and how a layer is drawn at a given time.
+class LayerPlacement {
+  const LayerPlacement({
+    required this.center,
+    required this.pose,
+    required this.intensity,
+  });
+
+  /// Ellipse center as a fraction of the screen (translations included).
+  final Offset center;
+
+  /// Scale and rotation around [center] (its translation is already in
+  /// [center]).
+  final LayerPose pose;
+
+  /// Alpha multiplier of the gradient stops.
+  final double intensity;
+}
+
 /// Shape, gradient and motion of one elliptical glow layer.
 class GlowLayerSpec {
   const GlowLayerSpec({
@@ -84,7 +141,30 @@ class GlowLayerSpec {
     required this.stops,
     required this.cycleSeconds,
     required this.keyframes,
+    this.anchor,
+    this.orbit,
   });
+
+  /// A spot that rides on [anchor] and orbits it.
+  GlowLayerSpec.spot({
+    required String name,
+    required Size size,
+    required List<GlowStop> stops,
+    required GlowLayerSpec anchor,
+    required GlowOrbit orbit,
+  }) : this(
+         name: name,
+         size: size,
+         center: anchor.center,
+         stops: stops,
+         cycleSeconds: 1,
+         keyframes: const [
+           LayerKeyframe(0, LayerPose()),
+           LayerKeyframe(1, LayerPose()),
+         ],
+         anchor: anchor,
+         orbit: orbit,
+       );
 
   final String name;
 
@@ -99,6 +179,37 @@ class GlowLayerSpec {
   /// Sorted by [LayerKeyframe.at], from 0 to 1. Every segment between two
   /// keyframes is eased with [AuthBackgroundSpec.curve].
   final List<LayerKeyframe> keyframes;
+
+  /// Layer whose translation (keyframes) this one follows, if any.
+  final GlowLayerSpec? anchor;
+
+  /// Circular motion around [center] (plus the [anchor] drift), if any.
+  final GlowOrbit? orbit;
+
+  /// Position, shape and intensity [seconds] after the background started,
+  /// with translations and scales multiplied by [amplitude].
+  LayerPlacement placementAt(double seconds, {double amplitude = 1}) {
+    final pose = poseAt(seconds).amplified(amplitude);
+    var x = center.dx + pose.dx;
+    var y = center.dy + pose.dy;
+    final anchor = this.anchor;
+    if (anchor != null) {
+      final drift = anchor.poseAt(seconds).amplified(amplitude);
+      x += drift.dx;
+      y += drift.dy;
+    }
+    final orbit = this.orbit;
+    if (orbit != null) {
+      final offset = orbit.offsetAt(seconds);
+      x += offset.dx;
+      y += offset.dy;
+    }
+    return LayerPlacement(
+      center: Offset(x, y),
+      pose: pose,
+      intensity: orbit?.intensityAt(seconds) ?? 1,
+    );
+  }
 
   /// Pose of the layer [seconds] after the background started.
   LayerPose poseAt(double seconds) {
@@ -160,14 +271,19 @@ abstract final class AuthBackgroundSpec {
   /// approximation.)
   static const Curve curve = Cubic(0.37, 0, 0.63, 1);
 
-  // Layers, in paint order: core → teal → wave B → wave A.
+  // Layers, in paint order: core → green spot → teal spot → wave B → wave A.
 
+  /// Horizontal center of the glow (core, spots and variant origin).
+  static const double glowCenterX = 0.50;
+
+  /// Body of the glow: the green "wave" that stretches and squashes. Its
+  /// bright center lives in [greenSpot] so it can orbit with [tealSpot].
   static final GlowLayerSpec core = GlowLayerSpec(
     name: 'core',
     size: const Size(1.30, 0.62),
-    center: const Offset(0.40, 0.16),
+    center: const Offset(glowCenterX, 0.16),
     stops: const [
-      GlowStop(0, GlowTone.bright, 0.42),
+      GlowStop(0, GlowTone.mid, 0.62),
       GlowStop(0.38, GlowTone.mid, 0.62),
       GlowStop(0.68, GlowTone.deep, 0.70),
       GlowStop(1, GlowTone.base, 0),
@@ -191,21 +307,50 @@ abstract final class AuthBackgroundSpec {
     ],
   );
 
-  static final GlowLayerSpec teal = GlowLayerSpec(
-    name: 'teal',
-    size: const Size(0.70, 0.34),
-    center: const Offset(0.90, 0.11),
+  // DECISIÓN: at the owner's request the green and teal spots are equal in
+  // size, sit half a turn apart on an orbit around the core center and take
+  // turns being the strongest, so the glow cycles green ↔ teal.
+
+  /// Orbit shared by both spots (the teal one starts half a turn later).
+  static const double spotOrbitRadiusX = 0.14;
+  static const double spotOrbitRadiusY = 0.05;
+  static const double spotOrbitSeconds = 24;
+  static const double spotPulse = 0.25;
+  static const Size spotSize = Size(0.85, 0.40);
+
+  static final GlowLayerSpec greenSpot = GlowLayerSpec.spot(
+    name: 'greenSpot',
+    size: spotSize,
     stops: const [
-      GlowStop(0, GlowTone.teal, 0.75),
-      GlowStop(0.5, GlowTone.teal, 0.35),
+      GlowStop(0, GlowTone.bright, 0.55),
+      GlowStop(0.45, GlowTone.bright, 0.25),
+      GlowStop(1, GlowTone.bright, 0),
+    ],
+    anchor: core,
+    orbit: const GlowOrbit(
+      radiusX: spotOrbitRadiusX,
+      radiusY: spotOrbitRadiusY,
+      cycleSeconds: spotOrbitSeconds,
+      pulse: spotPulse,
+    ),
+  );
+
+  static final GlowLayerSpec tealSpot = GlowLayerSpec.spot(
+    name: 'tealSpot',
+    size: spotSize,
+    stops: const [
+      GlowStop(0, GlowTone.teal, 0.95),
+      GlowStop(0.45, GlowTone.teal, 0.50),
       GlowStop(1, GlowTone.teal, 0),
     ],
-    cycleSeconds: 23,
-    keyframes: const [
-      LayerKeyframe(0, LayerPose()),
-      LayerKeyframe(0.5, LayerPose(dx: -0.063, dy: 0.0102)),
-      LayerKeyframe(1, LayerPose()),
-    ],
+    anchor: core,
+    orbit: const GlowOrbit(
+      radiusX: spotOrbitRadiusX,
+      radiusY: spotOrbitRadiusY,
+      cycleSeconds: spotOrbitSeconds,
+      phase: 0.5,
+      pulse: spotPulse,
+    ),
   );
 
   static final GlowLayerSpec waveB = GlowLayerSpec(
@@ -241,11 +386,17 @@ abstract final class AuthBackgroundSpec {
     ],
   );
 
-  static final List<GlowLayerSpec> layers = [core, teal, waveB, waveA];
+  static final List<GlowLayerSpec> layers = [
+    core,
+    greenSpot,
+    tealSpot,
+    waveB,
+    waveA,
+  ];
 
   // DECISIÓN: the handoff values move too little and too slowly to be
   // noticed on a phone, so the whole animation plays [speed] times faster
-  // (core 8 s, waves 8.5–12.5 s, breathing 4 s) and the translations and
+  // (core 8 s, waves 8.5–12.5 s, spot orbit 12 s, breathing 4 s) and the translations and
   // scales of every layer are [amplitude] times larger. Set both to 1 to
   // get exactly the reference preview.
 
@@ -272,7 +423,7 @@ abstract final class AuthBackgroundSpec {
   static const List<double> maskStops = [0, 0.22, 0.34, 0.45];
 
   // Variants.
-  static const Offset variantOrigin = Offset(0.38, 0.18);
+  static const Offset variantOrigin = Offset(glowCenterX, 0.18);
   static const GlowGroupTransform welcomeTransform = GlowGroupTransform(
     scale: 1,
     dx: 0,
@@ -281,7 +432,8 @@ abstract final class AuthBackgroundSpec {
   );
   static const GlowGroupTransform formTransform = GlowGroupTransform(
     scale: 0.72,
-    dx: -0.06,
+    // Centered glow: the form variant only shrinks and rises.
+    dx: 0,
     dy: -0.08,
     opacity: 0.6,
   );

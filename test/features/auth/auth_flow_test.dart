@@ -1,15 +1,38 @@
+import 'dart:async';
+
 import 'package:financial_between_us/core/router/app_router.dart';
 import 'package:financial_between_us/core/theme/app_theme.dart';
+import 'package:financial_between_us/features/auth/data/auth_repository.dart';
+import 'package:financial_between_us/features/auth/domain/auth_failure.dart';
+import 'package:financial_between_us/features/auth/domain/session_destination.dart';
 import 'package:financial_between_us/features/auth/presentation/background/auth_background_spec.dart';
 import 'package:financial_between_us/features/auth/presentation/background/fbu_auth_background.dart';
+import 'package:financial_between_us/features/auth/presentation/widgets/auth_banner.dart';
+import 'package:financial_between_us/features/auth/presentation/widgets/fbu_text_field.dart';
+import 'package:financial_between_us/features/profile/data/profile_providers.dart';
+import 'package:financial_between_us/features/profile/domain/user_profile.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../support/fakes.dart';
+
 const _home = 'HOME';
+const _profile = 'Completa tu perfil';
+const _newUser = UserProfile(
+  uid: 'uid-1',
+  displayName: 'mao',
+  nickname: 'mao',
+  email: 'mao@correo.com',
+);
+const _chooseNickname = 'Elige tu nombre de usuario';
 
 void main() {
   late GoRouter router;
+  late FakeAuthRepository auth;
+
+  setUp(() => auth = FakeAuthRepository());
 
   Future<void> pumpAuth(
     WidgetTester tester, {
@@ -36,15 +59,23 @@ void main() {
     addTearDown(router.dispose);
 
     await tester.pumpWidget(
-      MaterialApp.router(
-        theme: AppTheme.dark,
-        routerConfig: router,
-        builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(context).copyWith(
-            disableAnimations: disableAnimations,
-            textScaler: TextScaler.linear(textScale),
+      ProviderScope(
+        overrides: [
+          authRepositoryProvider.overrideWithValue(auth),
+          currentUserProfileProvider.overrideWith(
+            (ref) => Stream.value(_newUser),
           ),
-          child: child!,
+        ],
+        child: MaterialApp.router(
+          theme: AppTheme.dark,
+          routerConfig: router,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              disableAnimations: disableAnimations,
+              textScaler: TextScaler.linear(textScale),
+            ),
+            child: child!,
+          ),
         ),
       ),
     );
@@ -154,6 +185,7 @@ void main() {
 
     await enter(tester, 'Usuario o correo', 'juanes_92');
     await enter(tester, 'Contraseña', 'cuentasclaras');
+    auth.gate = Completer<void>();
     await tester.tap(find.text('Iniciar sesión'));
     await advance(tester, const Duration(milliseconds: 300));
 
@@ -167,8 +199,100 @@ void main() {
     expect(back.onPressed, isNull);
     expect(tester.widget<PopScope>(find.byType(PopScope).last).canPop, isFalse);
 
-    await advance(tester, const Duration(seconds: 2));
+    auth.gate!.complete();
+    await advance(tester, const Duration(milliseconds: 800));
     expect(find.text(_home), findsOneWidget);
+    expect(auth.calls, ['signIn:juanes_92']);
+  });
+
+  testWidgets('wrong credentials show the banner and red fields', (
+    tester,
+  ) async {
+    auth.failure = const InvalidCredentials();
+    await pumpAuth(tester, location: AppRoutes.login);
+    await advance(tester, const Duration(milliseconds: 800));
+
+    await enter(tester, 'Usuario o correo', 'juanes_92');
+    await enter(tester, 'Contraseña', 'otra-clave');
+    await tapAndWait(tester, find.text('Iniciar sesión'));
+
+    expect(
+      find.text(
+        'El usuario o la contraseña no coinciden. Revisa e intenta de nuevo.',
+      ),
+      findsOneWidget,
+    );
+    final fields = tester.widgetList<FbuTextField>(find.byType(FbuTextField));
+    expect(fields.every((f) => f.hasError), isTrue);
+
+    // Editing a field clears the red borders.
+    await enter(tester, 'Contraseña', 'otra-clave-2');
+    final edited = tester.widgetList<FbuTextField>(find.byType(FbuTextField));
+    expect(edited.any((f) => f.hasError), isFalse);
+  });
+
+  testWidgets('sign-up goes to complete the profile', (tester) async {
+    await pumpAuth(tester, location: AppRoutes.register);
+    await advance(tester, const Duration(milliseconds: 800));
+
+    await enter(tester, 'Nombre de usuario', 'mao');
+    await enter(tester, 'Correo electrónico', 'mao@correo.com');
+    await enter(tester, 'Contraseña', 'cuentasclaras');
+    await tapAndWait(tester, find.text('Crear cuenta'));
+
+    expect(auth.calls, ['register:mao:mao@correo.com']);
+    expect(find.text(_profile), findsOneWidget);
+  });
+
+  testWidgets('a taken nickname is shown below the username', (tester) async {
+    auth.failure = const NicknameTaken();
+    await pumpAuth(tester, location: AppRoutes.register);
+    await advance(tester, const Duration(milliseconds: 800));
+
+    await enter(tester, 'Nombre de usuario', 'mao');
+    await enter(tester, 'Correo electrónico', 'mao@correo.com');
+    await enter(tester, 'Contraseña', 'cuentasclaras');
+    await tapAndWait(tester, find.text('Crear cuenta'));
+
+    final username = tester.widget<FbuTextField>(
+      find.byType(FbuTextField).first,
+    );
+    expect(username.errorText, 'Ese nombre ya está en uso. Prueba con otro.');
+    expect(find.text('Crea tu cuenta'), findsOneWidget);
+  });
+
+  testWidgets('Google the first time asks for a nickname', (tester) async {
+    auth.googleResult = SessionDestination.chooseNickname;
+    await pumpAuth(tester, location: AppRoutes.login);
+    await advance(tester, const Duration(milliseconds: 800));
+
+    await tapAndWait(tester, find.text('Continuar con Google'));
+    expect(find.text(_chooseNickname), findsOneWidget);
+
+    await enter(tester, 'Nombre de usuario', 'ana');
+    await tapAndWait(tester, find.text('Continuar'));
+    expect(auth.calls, ['google', 'claim:ana']);
+    expect(find.text(_profile), findsOneWidget);
+  });
+
+  testWidgets('closing the Google dialog shows nothing', (tester) async {
+    auth.googleResult = null;
+    await pumpAuth(tester, location: AppRoutes.register);
+    await advance(tester, const Duration(milliseconds: 800));
+
+    await tapAndWait(tester, find.text('Continuar con Google'));
+    expect(find.text('Crea tu cuenta'), findsOneWidget);
+    expect(find.byType(AuthBanner), findsNothing);
+  });
+
+  testWidgets('back from choosing a nickname signs out', (tester) async {
+    await pumpAuth(tester, location: AppRoutes.chooseUsername);
+    await advance(tester, const Duration(milliseconds: 800));
+
+    await tester.tap(find.byTooltip('Volver'));
+    await advance(tester, const Duration(milliseconds: 800));
+    expect(find.text('Ingresa al aplicativo'), findsOneWidget);
+    expect(auth.calls, ['signOut']);
   });
 
   testWidgets('recover → sent masks the email and unlocks resend after 45 s', (
@@ -178,10 +302,11 @@ void main() {
     await tapAndWait(tester, find.text('¿Olvidaste tu contraseña?'));
     expect(find.text('Recupera tu contraseña'), findsOneWidget);
 
+    expect(find.text('Nueva contraseña'), findsNothing);
     await enter(tester, 'Correo electrónico', 'juan@correo.com');
-    await enter(tester, 'Nueva contraseña', 'cuentas2026');
     await tester.tap(find.text('Enviar'));
-    await advance(tester, const Duration(milliseconds: 2400));
+    await advance(tester, const Duration(milliseconds: 800));
+    expect(auth.calls, ['reset:juan@correo.com']);
 
     expect(find.text('Revisa tu correo'), findsOneWidget);
     expect(find.textContaining('j•••@correo.com'), findsOneWidget);
@@ -189,6 +314,9 @@ void main() {
 
     await advance(tester, const Duration(seconds: 45));
     expect(find.text('Reenviar correo'), findsOneWidget);
+    await tapAndWait(tester, find.text('Reenviar correo'));
+    expect(auth.calls, ['reset:juan@correo.com', 'reset:juan@correo.com']);
+    expect(find.text('Reenviar en 0:45'), findsOneWidget);
 
     // Back goes to recover, then to login.
     await tester.tap(find.byTooltip('Volver'));
@@ -197,6 +325,20 @@ void main() {
     await tester.tap(find.byTooltip('Volver'));
     await advance(tester, const Duration(milliseconds: 800));
     expect(find.text('Hola de nuevo'), findsOneWidget);
+  });
+
+  testWidgets('a network error keeps the user in recover', (tester) async {
+    auth.failure = const NetworkFailure();
+    await pumpAuth(tester, location: AppRoutes.recover);
+    await advance(tester, const Duration(milliseconds: 800));
+
+    await enter(tester, 'Correo electrónico', 'juan@correo.com');
+    await tapAndWait(tester, find.text('Enviar'));
+    expect(
+      find.text('Sin conexión. Revisa tu internet e intenta de nuevo.'),
+      findsOneWidget,
+    );
+    expect(find.text('Recupera tu contraseña'), findsOneWidget);
   });
 
   testWidgets('the background stops with reduced motion', (tester) async {
@@ -218,6 +360,7 @@ void main() {
     AppRoutes.recover,
     AppRoutes.recoverSent,
     AppRoutes.chooseUsername,
+    AppRoutes.completeProfile,
   ]) {
     testWidgets('no overflow at 130 % text on 360×640: $location', (
       tester,

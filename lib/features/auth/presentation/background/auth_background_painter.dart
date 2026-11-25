@@ -55,7 +55,7 @@ class AuthBackgroundPainter extends CustomPainter {
         canvas,
         size,
         layer,
-        layer.poseAt(seconds).amplified(AuthBackgroundSpec.amplitude),
+        layer.placementAt(seconds, amplitude: AuthBackgroundSpec.amplitude),
         brightness,
       );
     }
@@ -87,14 +87,15 @@ class AuthBackgroundPainter extends CustomPainter {
     Canvas canvas,
     Size size,
     GlowLayerSpec layer,
-    LayerPose pose,
+    LayerPlacement placement,
     double brightness,
   ) {
+    final pose = placement.pose;
     canvas
       ..save()
       ..translate(
-        (layer.center.dx + pose.dx) * size.width,
-        (layer.center.dy + pose.dy) * size.height,
+        placement.center.dx * size.width,
+        placement.center.dy * size.height,
       )
       ..rotate(pose.rotation)
       ..scale(pose.scaleX, pose.scaleY)
@@ -110,7 +111,8 @@ class AuthBackgroundPainter extends CustomPainter {
       Paint()
         ..shader = RadialGradient(
           colors: [
-            for (final stop in layer.stops) _stopColor(stop, brightness),
+            for (final stop in layer.stops)
+              _stopColor(stop, brightness, placement.intensity),
           ],
           stops: [for (final stop in layer.stops) stop.position],
         ).createShader(unit),
@@ -121,7 +123,7 @@ class AuthBackgroundPainter extends CustomPainter {
   // DECISIÓN: the breathing scales the RGB channels (capped at 1) instead of
   // the alpha. That is exactly what `filter: brightness()` does in the
   // reference preview (fondo_animado_preview.html).
-  Color _stopColor(GlowStop stop, double brightness) {
+  Color _stopColor(GlowStop stop, double brightness, double intensity) {
     final base = switch (stop.tone) {
       GlowTone.bright => tokens.glowBright,
       GlowTone.mid => tokens.glowMid,
@@ -130,7 +132,7 @@ class AuthBackgroundPainter extends CustomPainter {
       GlowTone.base => tokens.background,
     };
     return Color.from(
-      alpha: stop.alpha,
+      alpha: math.min(1, stop.alpha * intensity),
       red: math.min(1, base.r * brightness),
       green: math.min(1, base.g * brightness),
       blue: math.min(1, base.b * brightness),

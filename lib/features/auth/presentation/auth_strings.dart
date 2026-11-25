@@ -1,3 +1,4 @@
+import '../domain/auth_failure.dart';
 import '../domain/auth_validators.dart';
 
 /// Fields whose "required" message differs.
@@ -47,8 +48,7 @@ abstract final class AuthStrings {
   // Recover
   static const recoverTitle = 'Recupera tu contraseña';
   static const recoverSubtitle =
-      'Te enviaremos un enlace al correo para confirmar el cambio.';
-  static const newPasswordLabel = 'Nueva contraseña';
+      'Te enviaremos un enlace al correo para crear una nueva contraseña.';
   static const send = 'Enviar';
   static const recoverFooter = '¿Ya la recordaste?';
 
@@ -56,7 +56,7 @@ abstract final class AuthStrings {
   static const sentTitle = 'Revisa tu correo';
   static String sentBody(String maskedEmail) =>
       'Enviamos un enlace a $maskedEmail. '
-      'Ábrelo para confirmar tu nueva contraseña.';
+      'Ábrelo para crear tu nueva contraseña.';
   static const backToSignIn = 'Volver a iniciar sesión';
   static String resendIn(Duration left) {
     final seconds = left.inSeconds;
@@ -73,6 +73,24 @@ abstract final class AuthStrings {
   static const chooseUsernameSubtitle =
       'Así te encontrarán tus amigos en el grupo.';
   static const continueLabel = 'Continuar';
+
+  /// Message of a failed request (Firebase). The screens decide whether it
+  /// goes below a field or in the banner.
+  static String authFailure(AuthFailure failure) => switch (failure) {
+    InvalidCredentials() =>
+      'El usuario o la contraseña no coinciden. Revisa e intenta de nuevo.',
+    EmailAlreadyInUse() =>
+      'Ya existe una cuenta con este correo. Inicia sesión.',
+    WeakPassword() => 'Usa una contraseña más segura.',
+    NicknameTaken() => 'Ese nombre ya está en uso. Prueba con otro.',
+    TooManyRequests() =>
+      'Demasiados intentos. Espera unos minutos e intenta de nuevo.',
+    NetworkFailure() => 'Sin conexión. Revisa tu internet e intenta de nuevo.',
+    AccountExistsWithDifferentCredential() =>
+      'Este correo ya tiene una cuenta con contraseña. '
+          'Inicia sesión con tu usuario o correo.',
+    UnknownAuthFailure() => 'Algo salió mal. Intenta de nuevo.',
+  };
 
   /// Message of a client-side validation [failure] of [field].
   static String fieldFailure(

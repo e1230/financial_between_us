@@ -3,7 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'core/router/app_router.dart';
-import 'core/theme/app_theme.dart';
+import 'core/theme/app_theme_provider.dart';
+import 'core/theme/app_tokens.dart';
 import 'features/auth/data/sign_in_tracker.dart';
 
 void main() {
@@ -33,10 +34,21 @@ class FbuApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Keeps the "has ever signed in" flag in sync for the whole session.
     ref.listen(signInTrackerProvider, (_, _) {});
+    // MaterialApp creates the MediaQuery, so read the setting from the
+    // platform here.
+    final reduceMotion = WidgetsBinding
+        .instance
+        .platformDispatcher
+        .accessibilityFeatures
+        .disableAnimations;
     return MaterialApp.router(
       title: 'Financial Between Us',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark,
+      // The accent changes with the color of the signed-in user.
+      theme: ref.watch(appThemeProvider),
+      themeAnimationDuration: reduceMotion
+          ? Duration.zero
+          : AppTokens.dark.motionMedium,
       routerConfig: ref.watch(appRouterProvider),
     );
   }

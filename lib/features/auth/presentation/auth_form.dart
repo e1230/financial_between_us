@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../domain/auth_validators.dart';
-import 'auth_metrics.dart';
 import 'auth_strings.dart';
 import 'widgets/shake.dart';
 
@@ -70,6 +69,14 @@ mixin AuthFormMixin<T extends StatefulWidget> on State<T> {
     return valid;
   }
 
+  /// Shows a server-side [message] below [field] (e.g. a taken nickname),
+  /// shakes the form and focuses the field. The next change revalidates it.
+  void showFieldError(AuthFieldState field, String message) {
+    setState(() => field.error = message);
+    shakeKey.currentState?.shake();
+    field.focusNode.requestFocus();
+  }
+
   /// Wire to `onChanged` of each field.
   void onFieldChanged(AuthFieldState field) {
     if (!_submitted) return;
@@ -116,9 +123,3 @@ final List<TextInputFormatter> usernameFormatters = [
   FilteringTextInputFormatter.deny(RegExp(r'\s')),
   const LowerCaseTextFormatter(),
 ];
-
-// TODO: replace with the real Firebase calls (auth repository) in the
-// functional stage of the auth module.
-/// Stand-in for a Firebase request while the module is visual only.
-Future<void> simulateAuthRequest() =>
-    Future<void>.delayed(AuthMetrics.simulatedRequest);

@@ -45,6 +45,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       InitialDestination.home => AppRoutes.home,
       InitialDestination.walkthrough => AppRoutes.walkthrough,
       InitialDestination.welcome => AppRoutes.welcome,
+      InitialDestination.chooseNickname => AppRoutes.chooseUsername,
+      InitialDestination.completeProfile => AppRoutes.completeProfile,
     });
   }
 

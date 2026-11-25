@@ -1,14 +1,18 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/widgets/fbu_primary_button.dart';
+import '../../data/auth_repository.dart';
+import '../../domain/auth_failure.dart';
 import '../../domain/auth_validators.dart';
 import '../auth_form.dart';
 import '../auth_metrics.dart';
 import '../auth_strings.dart';
 import '../auth_text_styles.dart';
+import '../google_sign_in_action.dart';
 import '../widgets/auth_banner.dart';
 import '../widgets/auth_link.dart';
 import '../widgets/auth_scaffold.dart';
@@ -18,14 +22,14 @@ import '../widgets/or_divider.dart';
 import '../widgets/shake.dart';
 
 /// Sign-in with username or email and password.
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen>
+class _LoginScreenState extends ConsumerState<LoginScreen>
     with AuthFormMixin<LoginScreen> {
   final _identifier = AuthFieldState(
     field: AuthField.loginIdentifier,
@@ -40,20 +44,58 @@ class _LoginScreenState extends State<LoginScreen>
   /// subtitle.
   String? _banner;
 
+  /// Wrong credentials: both fields get a red border (message in the
+  /// banner) until one of them changes.
+  bool _credentialsRejected = false;
+
+  /// The running request is Google's (the main button shows no spinner).
+  bool _viaGoogle = false;
+
   @override
   List<AuthFieldState> get fields => [_identifier, _password];
 
   Future<void> _submit() async {
     if (busy || !validateAll()) return;
-    setState(() => _banner = null);
-    await runBusy(() async {
-      // TODO: sign in with email, or look up the email of the username
-      // first (handoff section 6.3). Errors go to `_banner`.
-      await simulateAuthRequest();
-      if (!mounted) return;
-      finishAutofill();
-      context.go(AppRoutes.home);
+    setState(() {
+      _banner = null;
+      _credentialsRejected = false;
     });
+    await runBusy(() async {
+      try {
+        final destination = await ref
+            .read(authRepositoryProvider)
+            .signIn(identifier: _identifier.text, password: _password.text);
+        if (!mounted) return;
+        finishAutofill();
+        context.go(AppRoutes.forSession(destination));
+      } on AuthFailure catch (failure) {
+        if (!mounted) return;
+        setState(() {
+          _banner = AuthStrings.authFailure(failure);
+          _credentialsRejected = failure is InvalidCredentials;
+        });
+        if (_credentialsRejected) shakeKey.currentState?.shake();
+      }
+    });
+  }
+
+  void _onChanged(AuthFieldState field) {
+    if (_credentialsRejected) setState(() => _credentialsRejected = false);
+    onFieldChanged(field);
+  }
+
+  Future<void> _google() async {
+    if (busy) return;
+    setState(() {
+      _banner = null;
+      _credentialsRejected = false;
+      _viaGoogle = true;
+    });
+    await runBusy(() async {
+      final error = await continueWithGoogle(context, ref);
+      if (mounted) setState(() => _banner = error);
+    });
+    if (mounted) setState(() => _viaGoogle = false);
   }
 
   @override
@@ -86,11 +128,12 @@ class _LoginScreenState extends State<LoginScreen>
                     label: AuthStrings.loginIdentifierLabel,
                     hint: AuthStrings.loginIdentifierHint,
                     errorText: _identifier.error,
+                    hasError: _credentialsRejected,
                     keyboardType: TextInputType.emailAddress,
                     autocorrect: false,
                     autofillHints: const [AutofillHints.username],
                     textInputAction: TextInputAction.next,
-                    onChanged: (_) => onFieldChanged(_identifier),
+                    onChanged: (_) => _onChanged(_identifier),
                   ),
                   const SizedBox(height: AuthMetrics.fieldGap),
                   FbuTextField(
@@ -99,10 +142,11 @@ class _LoginScreenState extends State<LoginScreen>
                     label: AuthStrings.passwordLabel,
                     hint: AuthStrings.passwordHint,
                     errorText: _password.error,
+                    hasError: _credentialsRejected,
                     isPassword: true,
                     autofillHints: const [AutofillHints.password],
                     textInputAction: TextInputAction.done,
-                    onChanged: (_) => onFieldChanged(_password),
+                    onChanged: (_) => _onChanged(_password),
                     onSubmitted: (_) => _submit(),
                   ),
                   const SizedBox(height: AuthMetrics.fieldGap),
@@ -121,7 +165,7 @@ class _LoginScreenState extends State<LoginScreen>
         SizedBox(height: tokens.space1),
         FbuPrimaryButton(
           onPressed: _submit,
-          isLoading: busy,
+          isLoading: busy && !_viaGoogle,
           loadingSemanticsLabel: AuthStrings.signingIn,
           child: const Text(AuthStrings.signIn),
         ),
@@ -131,10 +175,7 @@ class _LoginScreenState extends State<LoginScreen>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const OrDivider(),
-              // TODO: Google sign-in; the first time it asks for a username.
-              GoogleButton(
-                onPressed: () => context.go(AppRoutes.chooseUsername),
-              ),
+              GoogleButton(onPressed: _google, isLoading: _viaGoogle),
               SizedBox(height: tokens.space1),
               AuthFooter(
                 prompt: AuthStrings.loginFooter,

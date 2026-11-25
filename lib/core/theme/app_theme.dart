@@ -1,10 +1,24 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../utils/accent_color.dart';
 import 'app_tokens.dart';
 
 /// Builds the app [ThemeData] from [AppTokens].
 abstract final class AppTheme {
   static ThemeData get dark => _build(AppTokens.dark);
+
+  /// [dark] with the accent color chosen by the user in their profile. The
+  /// base tokens do not change; only [AppTokens.accent] and
+  /// [AppTokens.accentPressed] are replaced.
+  static ThemeData withAccent(Color accent) {
+    if (accent == AppTokens.dark.accent) return dark;
+    return _build(
+      AppTokens.dark.copyWith(
+        accent: accent,
+        accentPressed: AccentColor.pressed(accent),
+      ),
+    );
+  }
 
   static ThemeData _build(AppTokens t) {
     final colorScheme = ColorScheme.dark(

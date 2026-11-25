@@ -65,10 +65,48 @@ void main() {
       AuthBackgroundSpec.waveB.poseAt(12.5),
       LayerPose(dx: -0.0375, dy: -0.004, rotation: deg(3)),
     );
-    expectPose(
-      AuthBackgroundSpec.teal.poseAt(11.5),
-      const LayerPose(dx: -0.063, dy: 0.0102),
-    );
+  });
+
+  group('green and teal spots', () {
+    final green = AuthBackgroundSpec.greenSpot;
+    final teal = AuthBackgroundSpec.tealSpot;
+    const orbit = AuthBackgroundSpec.spotOrbitSeconds;
+    const rx = AuthBackgroundSpec.spotOrbitRadiusX;
+    const cx = AuthBackgroundSpec.glowCenterX;
+
+    test('have the same size and sit on opposite sides of the core', () {
+      expect(green.size, teal.size);
+      final g = green.placementAt(0).center;
+      final t = teal.placementAt(0).center;
+      expect(g.dx, closeTo(cx + rx, epsilon));
+      expect(t.dx, closeTo(cx - rx, epsilon));
+      expect(
+        (g.dy + t.dy) / 2,
+        closeTo(AuthBackgroundSpec.core.center.dy, epsilon),
+      );
+    });
+
+    test('swap places and dominance every half orbit', () {
+      // Removes the core drift at that time to compare orbit positions only.
+      final drift = AuthBackgroundSpec.core.poseAt(orbit / 2).dx;
+      final g = green.placementAt(orbit / 2);
+      final t = teal.placementAt(orbit / 2);
+      expect(g.center.dx - drift, closeTo(cx - rx, epsilon));
+      expect(t.center.dx - drift, closeTo(cx + rx, epsilon));
+      expect(t.intensity, greaterThan(g.intensity));
+      expect(
+        green.placementAt(0).intensity,
+        greaterThan(teal.placementAt(0).intensity),
+      );
+    });
+
+    test('ride on the core drift', () {
+      // At 4 s the core is at its 25 % keyframe (dx +0.0325).
+      final drift = AuthBackgroundSpec.core.poseAt(4).amplified(1.5).dx;
+      final withDrift = green.placementAt(4, amplitude: 1.5).center.dx;
+      final orbitOnly = cx + green.orbit!.offsetAt(4).dx;
+      expect(withDrift, closeTo(orbitOnly + drift, epsilon));
+    });
   });
 
   test('amplified scales translation and scale but not rotation', () {
@@ -92,10 +130,11 @@ void main() {
     expectPose(const LayerPose().amplified(1.5), const LayerPose());
   });
 
-  test('layers are painted core → teal → wave B → wave A', () {
+  test('layers are painted core → spots → wave B → wave A', () {
     expect(AuthBackgroundSpec.layers.map((layer) => layer.name), [
       'core',
-      'teal',
+      'greenSpot',
+      'tealSpot',
       'waveB',
       'waveA',
     ]);
@@ -115,7 +154,7 @@ void main() {
     expect(welcome.scale, 1);
     expect(welcome.opacity, 1);
     expect(form.scale, closeTo(0.72, epsilon));
-    expect(form.dx, closeTo(-0.06, epsilon));
+    expect(form.dx, 0);
     expect(form.dy, closeTo(-0.08, epsilon));
     expect(form.opacity, closeTo(0.6, epsilon));
     expect(half.scale, closeTo(0.86, epsilon));
