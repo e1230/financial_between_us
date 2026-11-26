@@ -38,12 +38,20 @@ List<PaymentAccount> sampleAccounts() => [
   ),
 ];
 
-/// Payment accounts in memory, for one user.
+/// Payment accounts in memory: [accounts] are the signed-in user's, and
+/// [others] maps other uids to theirs (read-only).
 class FakePaymentAccountsRepository implements PaymentAccountsRepository {
-  FakePaymentAccountsRepository({List<PaymentAccount>? accounts})
-    : accounts = [...?accounts];
+  FakePaymentAccountsRepository({
+    List<PaymentAccount>? accounts,
+    Map<String, List<PaymentAccount>>? others,
+  }) : accounts = [...?accounts],
+       others = {...?others};
 
   final List<PaymentAccount> accounts;
+  final Map<String, List<PaymentAccount>> others;
+
+  /// Uids whose accounts cannot be read (like the security rules would).
+  final Set<String> denied = {};
 
   /// Thrown by the next write.
   PaymentAccountFailure? failure;
@@ -67,6 +75,13 @@ class FakePaymentAccountsRepository implements PaymentAccountsRepository {
 
   @override
   Stream<List<PaymentAccount>> watch(String uid) async* {
+    if (denied.contains(uid)) {
+      throw const UnknownPaymentAccountFailure('permission-denied');
+    }
+    if (others[uid] case final theirs?) {
+      yield sortAccounts(theirs);
+      return;
+    }
     yield _live;
     yield* _changes.stream.map((_) => _live);
   }

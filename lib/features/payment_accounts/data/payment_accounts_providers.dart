@@ -29,3 +29,15 @@ Future<PaymentAccount?> myPaymentAccountById(Ref ref, String accountId) async {
   final accounts = await ref.watch(myPaymentAccountsProvider.future);
   return accounts.where((a) => a.id == accountId).firstOrNull;
 }
+
+/// Live payment accounts of the user [uid], oldest first: a friend who
+/// shares an active group with the signed-in user (the security rules allow
+/// nobody else).
+///
+/// Not retried on error: a denied read does not fix itself, and the sheet
+/// offers "Reintentar".
+@Riverpod(retry: _noRetry)
+Stream<List<PaymentAccount>> paymentAccountsOf(Ref ref, String uid) =>
+    ref.watch(paymentAccountsRepositoryProvider).watch(uid);
+
+Duration? _noRetry(int retryCount, Object error) => null;

@@ -15,6 +15,9 @@ import 'package:financial_between_us/features/groups/presentation/groups_screen.
 import 'package:financial_between_us/features/groups/presentation/widgets/member_tile.dart';
 import 'package:financial_between_us/features/home/data/home_activity_repository.dart';
 import 'package:financial_between_us/features/home/data/home_providers.dart';
+import 'package:financial_between_us/features/payment_accounts/data/payment_accounts_providers.dart';
+import 'package:financial_between_us/features/payment_accounts/presentation/member/member_accounts_sheet.dart';
+import 'package:financial_between_us/features/payment_accounts/presentation/payment_accounts_screen.dart';
 import 'package:financial_between_us/features/profile/data/profile_providers.dart';
 import 'package:financial_between_us/features/profile/domain/user_profile.dart';
 import 'package:flutter/services.dart';
@@ -27,6 +30,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../support/balances_fakes.dart';
 import '../../support/fakes.dart';
 import '../../support/group_fakes.dart';
+import '../../support/payment_accounts_fakes.dart';
 
 const _uid = 'me';
 
@@ -73,10 +77,15 @@ void main() {
   late FakeGroupsRepository groups;
   late FakeSharedPreferencesAsync prefs;
   late FixedBalancesRepository balances;
+  late FakePaymentAccountsRepository accounts;
 
   setUp(() {
     groups = FakeGroupsRepository();
     prefs = FakeSharedPreferencesAsync();
+    accounts = FakePaymentAccountsRepository(
+      accounts: sampleAccounts(),
+      others: {'ana': sampleAccounts()},
+    );
     balances = FixedBalancesRepository([
       const Debt(fromUid: 'ana', toUid: _uid, amount: 32000),
       const Debt(fromUid: _uid, toUid: 'beto', amount: 41500),
@@ -127,6 +136,7 @@ void main() {
             FakeHomeActivityRepository(clock: () => DateTime(2026, 11, 25, 21)),
           ),
           appVersionProvider.overrideWith((ref) async => '1.0.0'),
+          paymentAccountsRepositoryProvider.overrideWithValue(accounts),
         ],
         child: MaterialApp.router(
           theme: AppTheme.withAccent(const Color(0xFF9FA8DA)),
@@ -534,5 +544,66 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
+  });
+
+  group('payment accounts of a member', () {
+    List<String> copied(WidgetTester tester) {
+      final log = <String>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            log.add((call.arguments as Map)['text'] as String);
+          }
+          return null;
+        },
+      );
+      return log;
+    }
+
+    testWidgets('tapping a member shows their accounts to copy', (
+      tester,
+    ) async {
+      groups.groups.add(_group());
+      await pumpDetail(tester);
+      final log = copied(tester);
+
+      await tap(tester, row('Ana Gómez'));
+      expect(find.byType(MemberAccountsSheet), findsOneWidget);
+      expect(find.text('Cuentas de Ana'), findsOneWidget);
+      expect(find.text('300 123 4567'), findsOneWidget);
+      expect(find.text('Toca una cuenta para copiarla.'), findsOneWidget);
+
+      await tester.tap(find.text('Nequi personal'));
+      await tester.pump();
+      expect(log, ['3001234567']);
+      expect(find.text('Copiado · 300 123 4567'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('a member without accounts', (tester) async {
+      groups.groups.add(_group());
+      accounts.others['beto'] = [];
+      await pumpDetail(tester);
+      await tap(tester, row('Beto Ruiz'));
+      expect(find.text('Beto aún no tiene cuentas de pago.'), findsOneWidget);
+    });
+
+    testWidgets('accounts that cannot be read show an error', (tester) async {
+      groups.groups.add(_group());
+      accounts.denied.add('carla');
+      await pumpDetail(tester);
+      await tap(tester, row('Carla Díaz'));
+      expect(find.text('No pudimos cargar sus cuentas.'), findsOneWidget);
+      expect(find.text('Reintentar'), findsOneWidget);
+    });
+
+    testWidgets('tapping my own row opens my accounts page', (tester) async {
+      groups.groups.add(_group());
+      await pumpDetail(tester);
+      await tap(tester, row('Juan Pérez (tú)'));
+      expect(find.byType(PaymentAccountsScreen), findsOneWidget);
+    });
   });
 }

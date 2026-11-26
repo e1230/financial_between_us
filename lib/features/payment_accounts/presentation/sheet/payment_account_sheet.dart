@@ -14,6 +14,7 @@ import '../payment_accounts_metrics.dart';
 import '../payment_accounts_strings.dart';
 import '../payment_accounts_text_styles.dart';
 import '../widgets/payment_account_logo.dart';
+import 'accounts_bottom_sheet.dart';
 import 'copy_button.dart';
 import 'reference_box.dart';
 import 'sheet_menu_button.dart';
@@ -27,45 +28,15 @@ enum AccountSheetResult {
   deleted,
 }
 
-/// Opens the detail of [account] as a modal bottom sheet over a 60 %
-/// black scrim. It rises in 300 ms and goes down in 220 ms (a plain
-/// 150 ms with `MediaQuery.disableAnimations`).
+/// Opens the detail of [account] as a modal bottom sheet (see
+/// [showAccountsBottomSheet]).
 Future<AccountSheetResult?> showPaymentAccountSheet(
   BuildContext context,
   PaymentAccount account,
-) {
-  final tokens = context.tokens;
-  final reduceMotion = MediaQuery.disableAnimationsOf(context);
-  return showModalBottomSheet<AccountSheetResult>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    useRootNavigator: true,
-    backgroundColor: tokens.surface,
-    barrierColor: tokens.brandBackground.withValues(
-      alpha: PaymentAccountsMetrics.scrimOpacity,
-    ),
-    showDragHandle: false,
-    shape: RoundedRectangleBorder(
-      borderRadius: const BorderRadius.vertical(
-        top: Radius.circular(PaymentAccountsMetrics.sheetRadius),
-      ),
-      side: BorderSide(color: tokens.border),
-    ),
-    clipBehavior: Clip.antiAlias,
-    sheetAnimationStyle: AnimationStyle(
-      duration: reduceMotion
-          ? PaymentAccountsMetrics.reducedFade
-          : PaymentAccountsMetrics.sheetEntry,
-      reverseDuration: reduceMotion
-          ? PaymentAccountsMetrics.reducedFade
-          : PaymentAccountsMetrics.sheetExit,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
-    ),
-    builder: (_) => PaymentAccountSheet(account: account),
-  );
-}
+) => showAccountsBottomSheet<AccountSheetResult>(
+  context: context,
+  builder: (_) => PaymentAccountSheet(account: account),
+);
 
 /// Detail of a payment account: logo, name and type, the reference box,
 /// "Copiar" (not for cash) and "Compartir", and the ⋮ menu with "Editar"
@@ -132,18 +103,7 @@ class PaymentAccountSheet extends ConsumerWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Center(
-            child: Container(
-              width: PaymentAccountsMetrics.handleWidth,
-              height: PaymentAccountsMetrics.handleHeight,
-              decoration: BoxDecoration(
-                color: tokens.outlineMuted,
-                borderRadius: BorderRadius.circular(
-                  PaymentAccountsMetrics.handleRadius,
-                ),
-              ),
-            ),
-          ),
+          const SheetHandle(),
           const SizedBox(height: PaymentAccountsMetrics.sheetHeaderGap),
           Row(
             children: [

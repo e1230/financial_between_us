@@ -6,7 +6,13 @@ import '../payment_accounts_strings.dart';
 
 /// Three placeholder rows in the accounts card while they load.
 class AccountsSkeleton extends StatelessWidget {
-  const AccountsSkeleton({super.key});
+  const AccountsSkeleton({
+    super.key,
+    this.label = PaymentAccountsStrings.loading,
+  });
+
+  /// Announced by screen readers.
+  final String label;
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +26,7 @@ class AccountsSkeleton extends StatelessWidget {
       ),
     );
     return Semantics(
-      label: PaymentAccountsStrings.loading,
+      label: label,
       child: ExcludeSemantics(
         child: Container(
           clipBehavior: Clip.antiAlias,

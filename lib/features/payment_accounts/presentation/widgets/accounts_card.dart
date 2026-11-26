@@ -17,11 +17,15 @@ class AccountsCard extends StatefulWidget {
     required this.accounts,
     required this.onOpen,
     required this.onCopy,
+    this.tapCopies = false,
   });
 
   final List<PaymentAccount> accounts;
   final ValueChanged<PaymentAccount> onOpen;
   final ValueChanged<PaymentAccount> onCopy;
+
+  /// A tap copies too (someone else's accounts, which have no detail).
+  final bool tapCopies;
 
   @override
   State<AccountsCard> createState() => _AccountsCardState();
@@ -116,6 +120,7 @@ class _AccountsCardState extends State<AccountsCard> {
                     account: slot.account,
                     onOpen: () => widget.onOpen(slot.account),
                     onCopy: () => widget.onCopy(slot.account),
+                    tapCopies: widget.tapCopies,
                   ),
                 ],
               ),

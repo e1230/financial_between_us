@@ -16,6 +16,17 @@ abstract final class PaymentAccountsStrings {
   static const String cashReference = 'Pago en efectivo';
   static const String copyAction = 'Copiar referencia';
   static const String rowHint = 'Toca para ver, mantén presionado para copiar';
+  static const String rowCopyHint = 'Toca para copiar';
+
+  // Someone else's accounts (from the group detail)
+  static String memberTitle(String firstName) => 'Cuentas de $firstName';
+  static const String memberTitleFallback = 'Sus cuentas';
+  static const String memberSubtitle = 'Toca una cuenta para copiarla.';
+  static String memberEmpty(String firstName) =>
+      '$firstName aún no tiene cuentas de pago.';
+  static const String memberEmptyFallback = 'Aún no tiene cuentas de pago.';
+  static const String memberLoadError = 'No pudimos cargar sus cuentas.';
+  static const String memberLoading = 'Cargando sus cuentas';
 
   // Empty state
   static const String emptyTitle = 'Aún no tienes cuentas';

@@ -23,11 +23,15 @@ class PaymentAccountRow extends StatefulWidget {
     required this.account,
     required this.onOpen,
     required this.onCopy,
+    this.tapCopies = false,
   });
 
   final PaymentAccount account;
   final VoidCallback onOpen;
   final VoidCallback onCopy;
+
+  /// A tap copies too, instead of opening a detail.
+  final bool tapCopies;
 
   @override
   State<PaymentAccountRow> createState() => _PaymentAccountRowState();
@@ -66,7 +70,9 @@ class _PaymentAccountRowState extends State<PaymentAccountRow> {
     return Semantics(
       button: true,
       label: PaymentAccountsStrings.rowLabel(account),
-      hint: PaymentAccountsStrings.rowHint,
+      hint: widget.tapCopies
+          ? PaymentAccountsStrings.rowCopyHint
+          : PaymentAccountsStrings.rowHint,
       customSemanticsActions: {
         const CustomSemanticsAction(label: PaymentAccountsStrings.copyAction):
             _copy,
@@ -75,7 +81,7 @@ class _PaymentAccountRowState extends State<PaymentAccountRow> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: widget.onOpen,
+          onTap: widget.tapCopies ? _copy : widget.onOpen,
           onLongPress: _copy,
           // The copy vibrates on its own (and cash must not vibrate).
           enableFeedback: false,

@@ -190,3 +190,114 @@ final class MyPaymentAccountByIdFamily extends $Family
   @override
   String toString() => r'myPaymentAccountByIdProvider';
 }
+
+/// Live payment accounts of the user [uid], oldest first: a friend who
+/// shares an active group with the signed-in user (the security rules allow
+/// nobody else).
+///
+/// Not retried on error: a denied read does not fix itself, and the sheet
+/// offers "Reintentar".
+
+@ProviderFor(paymentAccountsOf)
+final paymentAccountsOfProvider = PaymentAccountsOfFamily._();
+
+/// Live payment accounts of the user [uid], oldest first: a friend who
+/// shares an active group with the signed-in user (the security rules allow
+/// nobody else).
+///
+/// Not retried on error: a denied read does not fix itself, and the sheet
+/// offers "Reintentar".
+
+final class PaymentAccountsOfProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<List<PaymentAccount>>,
+          List<PaymentAccount>,
+          Stream<List<PaymentAccount>>
+        >
+    with
+        $FutureModifier<List<PaymentAccount>>,
+        $StreamProvider<List<PaymentAccount>> {
+  /// Live payment accounts of the user [uid], oldest first: a friend who
+  /// shares an active group with the signed-in user (the security rules allow
+  /// nobody else).
+  ///
+  /// Not retried on error: a denied read does not fix itself, and the sheet
+  /// offers "Reintentar".
+  PaymentAccountsOfProvider._({
+    required PaymentAccountsOfFamily super.from,
+    required String super.argument,
+  }) : super(
+         retry: _noRetry,
+         name: r'paymentAccountsOfProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$paymentAccountsOfHash();
+
+  @override
+  String toString() {
+    return r'paymentAccountsOfProvider'
+        ''
+        '($argument)';
+  }
+
+  @$internal
+  @override
+  $StreamProviderElement<List<PaymentAccount>> $createElement(
+    $ProviderPointer pointer,
+  ) => $StreamProviderElement(pointer);
+
+  @override
+  Stream<List<PaymentAccount>> create(Ref ref) {
+    final argument = this.argument as String;
+    return paymentAccountsOf(ref, argument);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is PaymentAccountsOfProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$paymentAccountsOfHash() => r'4aad97fe8833cb6df36ad4cacf6cf36d2154b8c9';
+
+/// Live payment accounts of the user [uid], oldest first: a friend who
+/// shares an active group with the signed-in user (the security rules allow
+/// nobody else).
+///
+/// Not retried on error: a denied read does not fix itself, and the sheet
+/// offers "Reintentar".
+
+final class PaymentAccountsOfFamily extends $Family
+    with $FunctionalFamilyOverride<Stream<List<PaymentAccount>>, String> {
+  PaymentAccountsOfFamily._()
+    : super(
+        retry: _noRetry,
+        name: r'paymentAccountsOfProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  /// Live payment accounts of the user [uid], oldest first: a friend who
+  /// shares an active group with the signed-in user (the security rules allow
+  /// nobody else).
+  ///
+  /// Not retried on error: a denied read does not fix itself, and the sheet
+  /// offers "Reintentar".
+
+  PaymentAccountsOfProvider call(String uid) =>
+      PaymentAccountsOfProvider._(argument: uid, from: this);
+
+  @override
+  String toString() => r'paymentAccountsOfProvider';
+}

@@ -6,6 +6,8 @@ abstract final class GroupsStrings {
   static const String subtitle =
       'Crea un grupo, únete a uno con su código o sal de los que ya no uses.';
   static const String back = 'Volver';
+  static const String openAccounts = 'Toca para ver sus cuentas de pago';
+  static const String openMyAccounts = 'Toca para ver tus cuentas de pago';
 
   static String code(String code) => 'Código $code';
   static const String shownInHome = 'Se muestra en Inicio';

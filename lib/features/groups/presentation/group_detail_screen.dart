@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/widgets/fbu_pill_button.dart';
 import '../../auth/data/auth_providers.dart';
@@ -10,6 +12,7 @@ import '../../balances/domain/pair_balances.dart';
 import '../../home/presentation/home_metrics.dart';
 import '../../home/presentation/home_strings.dart';
 import '../../home/presentation/home_text_styles.dart';
+import '../../payment_accounts/presentation/member/member_accounts_sheet.dart';
 import '../data/groups_providers.dart';
 import '../domain/group.dart';
 import '../domain/group_failure.dart';
@@ -290,6 +293,9 @@ class _GroupContentState extends ConsumerState<_GroupContent> {
             onOptions: _optionsFor(member.uid).isEmpty
                 ? null
                 : (name) => _openOptions(member.uid, name),
+            onTap: (name) => member.uid == _uid
+                ? context.push(AppRoutes.accounts)
+                : showMemberAccountsSheet(context, uid: member.uid, name: name),
           ),
         if (pending.isNotEmpty) ...[
           section(GroupsStrings.pendingTitle),

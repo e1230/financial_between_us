@@ -13,7 +13,7 @@ import 'member_avatar.dart';
 
 /// An active member: avatar, name, nickname and role, since when, and the
 /// user's balance with them. Admins see an options button on the members
-/// they can manage.
+/// they can manage. Tapping the row ([onTap]) shows their payment accounts.
 class MemberTile extends ConsumerWidget {
   const MemberTile({
     super.key,
@@ -22,6 +22,7 @@ class MemberTile extends ConsumerWidget {
     required this.balance,
     this.isOwner = false,
     this.onOptions,
+    this.onTap,
   });
 
   final GroupMember member;
@@ -39,6 +40,9 @@ class MemberTile extends ConsumerWidget {
   /// the button.
   final ValueChanged<String>? onOptions;
 
+  /// Opens the member's payment accounts, with their visible name.
+  final ValueChanged<String>? onTap;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tokens = context.tokens;
@@ -52,8 +56,9 @@ class MemberTile extends ConsumerWidget {
         : GroupsStrings.roleMember;
     final joinedAt = member.joinedAt;
     final onOptions = this.onOptions;
+    final onTap = this.onTap;
 
-    return ConstrainedBox(
+    final tile = ConstrainedBox(
       constraints: const BoxConstraints(
         minHeight: GroupsMetrics.memberMinHeight,
       ),
@@ -119,6 +124,15 @@ class MemberTile extends ConsumerWidget {
         ),
       ),
     );
+    if (onTap == null) return tile;
+    return Semantics(
+      hint: isMe ? GroupsStrings.openMyAccounts : GroupsStrings.openAccounts,
+      child: InkWell(
+        onTap: () => onTap(name),
+        borderRadius: BorderRadius.circular(tokens.radiusCard),
+        child: tile,
+      ),
+    );
   }
 }
 
@@ -146,6 +160,8 @@ class BalanceLabel extends StatelessWidget {
     final label = owesYou ? GroupsStrings.owesYou : GroupsStrings.youOwe;
     final amount = MoneyFormat.format(balance);
     return Semantics(
+      // Its own node, also when the row is tappable.
+      container: true,
       label: '$label $amount',
       excludeSemantics: true,
       child: Column(
