@@ -157,6 +157,8 @@ abstract final class HomeStrings {
   static String failure(GroupFailure failure) => switch (failure) {
     GroupCodeNotFound() => 'No encontramos un grupo con ese código.',
     AlreadyMember() => 'Ya estás en este grupo.',
+    NotAMember() => 'Ya no haces parte de este grupo.',
+    NotGroupAdmin() => 'Solo el administrador del grupo puede hacer eso.',
     WrongGroupPassword() => 'La contraseña no coincide.',
     CodeGenerationExhausted() =>
       'No pudimos generar un código. Inténtalo de nuevo.',

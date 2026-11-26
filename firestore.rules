@@ -82,9 +82,10 @@ service cloud.firestore {
 
     // ---------------------------------------------------------------
     // groupCodes/{code} → { gid, name, hasPassword, requiresApproval,
-    //                       salt, createdAt }
+    //                       salt, createdAt, deletedAt? }
     // Unique join codes. Whoever knows a code can read its entry (to join),
-    // but nobody can list them.
+    // but nobody can list them. `deletedAt` marks the code of an archived
+    // group, which no longer works.
     // ---------------------------------------------------------------
     match /groupCodes/{code} {
       allow get: if signedIn();
@@ -104,7 +105,15 @@ service cloud.firestore {
         && (request.resource.data.hasPassword
               ? request.resource.data.salt is string
               : request.resource.data.salt == null);
-      allow update, delete: if false;
+      // Archiving: only `deletedAt`, by the owner, in the same batch that
+      // archives the group.
+      allow update: if signedIn()
+        && !('deletedAt' in resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deletedAt'])
+        && request.resource.data.deletedAt == request.time
+        && get(/databases/$(database)/documents/groups/$(resource.data.gid)).data.ownerUid == request.auth.uid
+        && getAfter(/databases/$(database)/documents/groups/$(resource.data.gid)).data.deletedAt == request.time;
+      allow delete: if false;
     }
 
     // ---------------------------------------------------------------
@@ -159,6 +168,7 @@ service cloud.firestore {
         let status = getAfter(memberPath(request.auth.uid)).data.status;
         return after.diff(before).affectedKeys().hasOnly(['members', 'pendingMembers', 'updatedAt'])
           && after.updatedAt == request.time
+          && before.deletedAt == null
           && !(request.auth.uid in before.members)
           && !(request.auth.uid in before.pendingMembers)
           && (status == 'active'
@@ -168,18 +178,85 @@ service cloud.firestore {
                 && after.members == before.members);
       }
 
+      // Leaving (or withdrawing a request): the caller removes only
+      // themselves, and their member document is marked `left` in the same
+      // batch. When the owner leaves, the oldest active member (the first
+      // of `members`, which is in join order) becomes the owner; if nobody
+      // is left, the group is archived.
+      function validLeave() {
+        let me = request.auth.uid;
+        let before = resource.data;
+        let after = request.resource.data;
+        let changed = after.diff(before).affectedKeys();
+        return getAfter(memberPath(me)).data.status == 'left'
+          && after.updatedAt == request.time
+          && before.deletedAt == null
+          && (me in before.members
+              ? after.members == before.members.removeAll([me])
+                && after.pendingMembers == before.pendingMembers
+                && (before.ownerUid != me
+                    ? changed.hasOnly(['members', 'updatedAt'])
+                    : (after.members.size() > 0
+                        ? changed.hasOnly(['members', 'ownerUid', 'updatedAt'])
+                          && after.ownerUid == after.members[0]
+                          && getAfter(memberPath(after.ownerUid)).data.role == 'admin'
+                        : changed.hasOnly(['members', 'deletedAt', 'updatedAt'])
+                          && after.deletedAt == request.time))
+              : me in before.pendingMembers
+                && after.pendingMembers == before.pendingMembers.removeAll([me])
+                && changed.hasOnly(['pendingMembers', 'updatedAt']));
+      }
+
+      // Admin changes (only the owner): remove one active member, or
+      // approve or reject one pending request. `removeAll` between the
+      // lists tells who is affected; their member document must change
+      // in the same batch.
+      function validAdminChange() {
+        let before = resource.data;
+        let after = request.resource.data;
+        let changed = after.diff(before).affectedKeys();
+        let gone = before.members.removeAll(after.members);
+        let answered = before.pendingMembers.removeAll(after.pendingMembers);
+        return before.ownerUid == request.auth.uid
+          && before.deletedAt == null
+          && after.updatedAt == request.time
+          && (
+            // Remove an active member (never the owner).
+            (changed.hasOnly(['members', 'updatedAt'])
+              && gone.size() == 1
+              && gone[0] != before.ownerUid
+              && after.members == before.members.removeAll(gone)
+              && getAfter(memberPath(gone[0])).data.status == 'removed')
+            // Approve a request: appended to `members` (join order).
+            || (changed.hasOnly(['members', 'pendingMembers', 'updatedAt'])
+              && answered.size() == 1
+              && after.pendingMembers == before.pendingMembers.removeAll(answered)
+              && after.members == before.members.concat(answered)
+              && getAfter(memberPath(answered[0])).data.status == 'active')
+            // Reject a request.
+            || (changed.hasOnly(['pendingMembers', 'updatedAt'])
+              && answered.size() == 1
+              && after.pendingMembers == before.pendingMembers.removeAll(answered)
+              && getAfter(memberPath(answered[0])).data.status == 'removed')
+          );
+      }
+
       // Active and pending members see the group (pending ones see its
       // name and size in the selector).
       allow read: if signedIn()
         && (request.auth.uid in resource.data.members
             || request.auth.uid in resource.data.pendingMembers);
       allow create: if signedIn() && validNewGroup(request.resource.data);
-      allow update: if signedIn() && validJoin();
-      // TODO: approve or reject members, rename, soft delete (group
-      // management module).
+      allow update: if signedIn()
+        && (validJoin() || validLeave() || validAdminChange());
+      // TODO: rename the group and change roles (group management module).
       allow delete: if false;
 
-      // groups/{groupId}/members/{uid} → { role, status, joinedAt }
+      // groups/{groupId}/members/{uid}
+      //   → { role, status, joinedAt, leftAt?, removedAt?, removedBy? }
+      // status: active | pending | left | removed. Whoever leaves (or is
+      // removed) keeps the document (soft delete) and may join again with
+      // the code.
       match /members/{uid} {
         function validMember(role, status) {
           return request.resource.data.keys().hasOnly(['role', 'status', 'joinedAt'])
@@ -195,21 +272,75 @@ service cloud.firestore {
                == get(/databases/$(database)/documents/groups/$(groupId)/secrets/password).data.hash;
         }
 
+        function isGroupAdmin() {
+          return get(groupPath()).data.ownerUid == request.auth.uid;
+        }
+
         allow get: if isOwner(uid) || isActiveMember();
         allow list: if isActiveMember();
+        // Anyone with the code: a plain member, pending if the group
+        // requires approval, and only with the right password.
+        function validJoiner() {
+          return exists(groupPath())
+            && validMember('member',
+                 get(groupPath()).data.requiresApproval ? 'pending' : 'active')
+            && passwordMatches()
+            && getAfter(groupPath()).data.updatedAt == request.time;
+        }
+
         allow create: if isOwner(uid) && (
           // The creator, while creating the group.
           (isBeingCreatedBy(uid) && validMember('admin', 'active'))
-          // Anyone with the code: a plain member, pending if the group
-          // requires approval, and only with the right password.
-          || (exists(groupPath())
-              && validMember('member',
-                   get(groupPath()).data.requiresApproval ? 'pending' : 'active')
-              && passwordMatches()
-              && getAfter(groupPath()).data.updatedAt == request.time)
+          || validJoiner()
         );
-        // TODO: approval and roles (group management module).
-        allow update, delete: if false;
+
+        allow update: if signedIn() && (
+          // Leaving: the member marks their own document `left`, as a plain
+          // member, in the batch that removes them from the group.
+          (isOwner(uid)
+            && resource.data.status in ['active', 'pending']
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['role', 'status', 'leftAt'])
+            && request.resource.data.role == 'member'
+            && request.resource.data.status == 'left'
+            && request.resource.data.leftAt == request.time
+            && !(uid in getAfter(groupPath()).data.members)
+            && !(uid in getAfter(groupPath()).data.pendingMembers))
+          // Joining again after leaving or being removed (same checks as a
+          // new joiner).
+          || (isOwner(uid)
+            && resource.data.status in ['left', 'removed']
+            && validJoiner())
+          // Hand-over: the leaving owner makes the new owner an admin.
+          || (!isOwner(uid)
+            && get(groupPath()).data.ownerUid == request.auth.uid
+            && getAfter(groupPath()).data.ownerUid == uid
+            && resource.data.status == 'active'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role'])
+            && request.resource.data.role == 'admin')
+          // The admin removes an active member or rejects a request.
+          || (isGroupAdmin()
+            && !isOwner(uid)
+            && resource.data.status in ['active', 'pending']
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['status', 'removedAt', 'removedBy'])
+            && request.resource.data.status == 'removed'
+            && request.resource.data.removedAt == request.time
+            && request.resource.data.removedBy == request.auth.uid
+            && !(uid in getAfter(groupPath()).data.members)
+            && !(uid in getAfter(groupPath()).data.pendingMembers))
+          // The admin approves a request: active from now on.
+          || (isGroupAdmin()
+            && !isOwner(uid)
+            && resource.data.status == 'pending'
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['status', 'joinedAt'])
+            && request.resource.data.status == 'active'
+            && request.resource.data.joinedAt == request.time
+            && uid in getAfter(groupPath()).data.members)
+        );
+        // TODO: change roles (group management module).
+        allow delete: if false;
       }
 
       // groups/{groupId}/secrets/password → { hash }
@@ -229,15 +360,20 @@ service cloud.firestore {
       // Hash of the password a user typed to join. Never readable.
       match /joinProofs/{uid} {
         allow read: if false;
-        // Only in the batch that joins (a lone proof would lock the user
-        // out, since it can never be rewritten).
-        allow create: if isOwner(uid)
-          && exists(groupPath())
-          && !exists(memberPath(uid))
-          && existsAfter(memberPath(uid))
-          && request.resource.data.keys().hasOnly(['hash'])
-          && request.resource.data.hash is string;
-        allow update, delete: if false;
+        // Only in the batch that joins (or joins again after leaving or
+        // being removed).
+        function validProof() {
+          return isOwner(uid)
+            && exists(groupPath())
+            && (!exists(memberPath(uid))
+                || get(memberPath(uid)).data.status in ['left', 'removed'])
+            && getAfter(memberPath(uid)).data.status in ['active', 'pending']
+            && request.resource.data.keys().hasOnly(['hash'])
+            && request.resource.data.hash is string;
+        }
+
+        allow create, update: if validProof();
+        allow delete: if false;
       }
 
       // groups/{groupId}/auditLog/{logId}: write-only change log.

@@ -4,7 +4,6 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_tokens.dart';
-import '../../../../core/utils/accent_color.dart';
 import '../../../../core/widgets/fbu_dialog.dart';
 import '../../../../core/widgets/fbu_pill_button.dart';
 import '../../../auth/data/auth_repository.dart';
@@ -74,16 +73,7 @@ class _SignOutDialogState extends ConsumerState<SignOutDialog> {
             onPressed: _signOut,
             isLoading: _busy,
             loadingSemanticsLabel: HomeStrings.signingOut,
-            colors: FbuPillButtonColors(
-              background: tokens.negative,
-              pressedBackground: AccentColor.pressed(tokens.negative),
-              disabledBackground: tokens.surfaceVariant,
-              foreground: tokens.onAccent,
-              disabledForeground: tokens.textDisabled,
-              ripple: tokens.onAccent.withValues(
-                alpha: FbuPillButton.rippleOpacity,
-              ),
-            ),
+            colors: FbuPillButtonColors.destructive(tokens),
             child: const Text(HomeStrings.signOut),
           ),
           SizedBox(height: tokens.space1),

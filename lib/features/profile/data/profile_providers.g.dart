@@ -191,3 +191,92 @@ final class CurrentUserProfileProvider
 
 String _$currentUserProfileHash() =>
     r'523631441344b09cec8b7ee26c80b119d15b3fa4';
+
+/// Live profile of any user (friends see each other's name, nickname,
+/// photo and color); `null` if it does not exist.
+
+@ProviderFor(userProfile)
+final userProfileProvider = UserProfileFamily._();
+
+/// Live profile of any user (friends see each other's name, nickname,
+/// photo and color); `null` if it does not exist.
+
+final class UserProfileProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<UserProfile?>,
+          UserProfile?,
+          Stream<UserProfile?>
+        >
+    with $FutureModifier<UserProfile?>, $StreamProvider<UserProfile?> {
+  /// Live profile of any user (friends see each other's name, nickname,
+  /// photo and color); `null` if it does not exist.
+  UserProfileProvider._({
+    required UserProfileFamily super.from,
+    required String super.argument,
+  }) : super(
+         retry: null,
+         name: r'userProfileProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$userProfileHash();
+
+  @override
+  String toString() {
+    return r'userProfileProvider'
+        ''
+        '($argument)';
+  }
+
+  @$internal
+  @override
+  $StreamProviderElement<UserProfile?> $createElement(
+    $ProviderPointer pointer,
+  ) => $StreamProviderElement(pointer);
+
+  @override
+  Stream<UserProfile?> create(Ref ref) {
+    final argument = this.argument as String;
+    return userProfile(ref, argument);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is UserProfileProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$userProfileHash() => r'fd549f054927e903e6493107a56fd6fffeebafae';
+
+/// Live profile of any user (friends see each other's name, nickname,
+/// photo and color); `null` if it does not exist.
+
+final class UserProfileFamily extends $Family
+    with $FunctionalFamilyOverride<Stream<UserProfile?>, String> {
+  UserProfileFamily._()
+    : super(
+        retry: null,
+        name: r'userProfileProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  /// Live profile of any user (friends see each other's name, nickname,
+  /// photo and color); `null` if it does not exist.
+
+  UserProfileProvider call(String uid) =>
+      UserProfileProvider._(argument: uid, from: this);
+
+  @override
+  String toString() => r'userProfileProvider';
+}

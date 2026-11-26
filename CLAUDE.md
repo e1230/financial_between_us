@@ -46,10 +46,11 @@ lib/
 ```
 users/{uid}                      displayName, nickname, email, photoUrl, color (#RRGGBB), …
 nicknames/{nickname}             uid, email
-groupCodes/{code}                gid, name, hasPassword, requiresApproval, salt   (código LIQ-7K4P, único)
+groupCodes/{code}                gid, name, hasPassword, requiresApproval, salt, deletedAt?   (código LIQ-7K4P, único)
 groups/{groupId}                 name, code, ownerUid, requiresApproval, hasPassword,
                                  members: [uid] (activos), pendingMembers: [uid]
-  members/{uid}                  role (admin|member), status (active|pending), joinedAt
+  members/{uid}                  role (admin|member), status (active|pending|left|removed), joinedAt,
+                                 leftAt?, removedAt?, removedBy?
   secrets/password               hash (SHA-256 con sal; nunca legible desde la app)
   joinProofs/{uid}               hash que envía quien se une (las reglas lo comparan)
   outings/{outingId}             fecha, lugar, totalCOP, propinaPct, fotoUrl, createdBy
@@ -60,7 +61,9 @@ groups/{groupId}                 name, code, ownerUid, requiresApproval, hasPass
 ```
 
 - El grupo activo del Home se guarda por dispositivo en `SharedPreferences` (`fbu.selected_group_id`).
-- La aprobación de miembros pendientes llegará con la gestión de grupos (las reglas aún no permiten aprobar).
+- Salir de un grupo (o cancelar una solicitud) es soft delete: el uid sale de `members`/`pendingMembers` y `members/{uid}` queda con `status: left`. Si sale el dueño, la administración pasa al miembro activo más antiguo (el primero de `members`, que está en orden de llegada); si estaba solo, el grupo y su código se archivan con `deletedAt`. Quien salió puede volver con el código.
+- El admin (el dueño, `ownerUid`) puede eliminar miembros activos y aprobar o rechazar solicitudes desde el detalle del grupo. Eliminar y rechazar son soft delete (`status: removed`); la persona puede volver a pedir entrar con el código. Al aprobar, `joinedAt` pasa a la fecha de aprobación.
+- Los saldos por persona salen de `features/balances` (`balancesWith`, `netBalance`). Mientras no existan las salidas, `FakeBalancesRepository` entrega deudas de ejemplo.
 
 ## Reglas de negocio (no negociables)
 

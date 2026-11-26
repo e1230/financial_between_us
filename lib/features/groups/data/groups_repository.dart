@@ -10,12 +10,14 @@ import '../domain/group.dart';
 import '../domain/group_code.dart';
 import '../domain/group_code_lookup.dart';
 import '../domain/group_failure.dart';
+import '../domain/group_member.dart';
 import '../domain/join_outcome.dart';
+import '../domain/leave_plan.dart';
 import 'group_mapper.dart';
 import 'group_password_hasher.dart';
 
-/// Groups of the signed-in user: list, create and join. Every method throws
-/// a [GroupFailure] on error.
+/// Groups of the signed-in user: list, create, join and leave. Every method
+/// throws a [GroupFailure] on error.
 abstract interface class GroupsRepository {
   /// Live groups where [uid] is an active or pending member, in selector
   /// order (see [sortGroupsFor]). Soft-deleted groups are left out.
@@ -34,6 +36,7 @@ abstract interface class GroupsRepository {
   Future<GroupCodeLookup> lookupCode(String code);
 
   /// Whether [uid] is already a member (active or pending) of [groupId].
+  /// Someone who left is not.
   Future<bool> isMember({required String groupId, required String uid});
 
   /// Joins [group]. Pass [password] when `group.hasPassword`; a wrong one
@@ -42,6 +45,41 @@ abstract interface class GroupsRepository {
     required GroupCodeLookup group,
     required String uid,
     String? password,
+  });
+
+  /// [uid] leaves [groupId] (or withdraws a pending request), as decided by
+  /// [planLeave]: the owner hands the group to the oldest member, or
+  /// archives it when alone. The membership is soft deleted. Throws
+  /// [NotAMember] if [uid] is no longer in the group.
+  Future<void> leave({required String groupId, required String uid});
+
+  /// Live current members (active and pending) of [groupId], unordered
+  /// (see [sortMembers]). Only active members can list them.
+  Stream<List<GroupMember>> watchMembers(String groupId);
+
+  /// The admin [adminUid] removes the active member [memberUid] (soft
+  /// delete; they may join again with the code). Throws [NotGroupAdmin] or
+  /// [NotAMember].
+  Future<void> removeMember({
+    required String groupId,
+    required String adminUid,
+    required String memberUid,
+  });
+
+  /// The admin approves the pending request of [memberUid], who becomes an
+  /// active member from now on.
+  Future<void> approveMember({
+    required String groupId,
+    required String adminUid,
+    required String memberUid,
+  });
+
+  /// The admin rejects the pending request of [memberUid] (they may ask
+  /// again with the code).
+  Future<void> rejectMember({
+    required String groupId,
+    required String adminUid,
+    required String memberUid,
   });
 }
 
@@ -207,7 +245,11 @@ class FirestoreGroupsRepository implements GroupsRepository {
 
   @override
   Future<bool> isMember({required String groupId, required String uid}) =>
-      _guard(() async => (await _member(groupId, uid).get()).exists);
+      _guard(
+        () async => GroupMapper.isCurrentMember(
+          (await _member(groupId, uid).get()).data(),
+        ),
+      );
 
   @override
   Future<JoinOutcome> join({
@@ -218,6 +260,8 @@ class FirestoreGroupsRepository implements GroupsRepository {
     final gid = group.groupId;
     final active = !group.requiresApproval;
     final batch = _firestore.batch();
+    // Someone who left joins again by overwriting their old member document
+    // (and join proof); the rules allow it only from status `left`.
     if (group.hasPassword) {
       final salt = group.passwordSalt;
       if (salt == null || password == null) throw const WrongGroupPassword();
@@ -262,6 +306,224 @@ class FirestoreGroupsRepository implements GroupsRepository {
     }
     return active ? Joined(gid) : PendingApproval(group.groupName);
   });
+
+  @override
+  Future<void> leave({required String groupId, required String uid}) =>
+      _guard(() async {
+        final groupRef = _groups.doc(groupId);
+        await _firestore.runTransaction((tx) async {
+          final DocumentSnapshot<Map<String, dynamic>> snapshot;
+          try {
+            snapshot = await tx.get(groupRef);
+          } on FirebaseException catch (error) {
+            // Only current members can read the group.
+            if (error.code == 'permission-denied') throw const NotAMember();
+            rethrow;
+          }
+          final data = snapshot.data();
+          if (data == null) throw const NotAMember();
+          final group = GroupMapper.fromFirestore(groupId, data);
+          final plan = planLeave(group, uid);
+          final wasPending = plan is CancelRequest;
+          final now = FieldValue.serverTimestamp();
+
+          tx
+            ..update(groupRef, {
+              wasPending ? GroupFields.pendingMembers : GroupFields.members:
+                  FieldValue.arrayRemove([uid]),
+              GroupFields.updatedAt: now,
+              if (plan case LeaveAndTransfer(:final newOwnerUid))
+                GroupFields.ownerUid: newOwnerUid,
+              if (plan is LeaveAndArchive) GroupFields.deletedAt: now,
+            })
+            ..update(_member(groupId, uid), GroupMapper.leftMember())
+            ..set(
+              _newAuditEntry(groupId),
+              GroupMapper.auditEntry(
+                action: wasPending
+                    ? AuditLogFields.actionCancelRequest
+                    : AuditLogFields.actionLeave,
+                entity: AuditLogFields.entityMember,
+                entityId: uid,
+                uid: uid,
+                before: {
+                  MemberFields.status: wasPending
+                      ? MemberFields.statusPending
+                      : MemberFields.statusActive,
+                },
+                after: {MemberFields.status: MemberFields.statusLeft},
+              ),
+            );
+
+          switch (plan) {
+            case LeaveAndTransfer(:final newOwnerUid):
+              tx
+                ..update(_member(groupId, newOwnerUid), {
+                  MemberFields.role: MemberFields.roleAdmin,
+                })
+                ..set(
+                  _newAuditEntry(groupId),
+                  GroupMapper.auditEntry(
+                    action: AuditLogFields.actionTransferOwnership,
+                    entity: AuditLogFields.entityGroup,
+                    entityId: groupId,
+                    uid: uid,
+                    before: {GroupFields.ownerUid: uid},
+                    after: {GroupFields.ownerUid: newOwnerUid},
+                  ),
+                );
+            case LeaveAndArchive():
+              tx
+                ..update(_code(group.code), {GroupCodeFields.deletedAt: now})
+                ..set(
+                  _newAuditEntry(groupId),
+                  GroupMapper.auditEntry(
+                    action: AuditLogFields.actionArchive,
+                    entity: AuditLogFields.entityGroup,
+                    entityId: groupId,
+                    uid: uid,
+                    before: {GroupFields.deletedAt: null},
+                    after: {GroupFields.deletedAt: now},
+                  ),
+                );
+            case LeaveAsMember() || CancelRequest():
+              break;
+          }
+        });
+      });
+
+  @override
+  Stream<List<GroupMember>> watchMembers(String groupId) => _groups
+      .doc(groupId)
+      .collection(FirestoreCollections.groupMembers)
+      .where(
+        MemberFields.status,
+        whereIn: [MemberFields.statusActive, MemberFields.statusPending],
+      )
+      .snapshots()
+      .map(
+        (s) => [
+          for (final doc in s.docs)
+            GroupMapper.memberFromFirestore(doc.id, doc.data()),
+        ],
+      )
+      .handleError((Object error, StackTrace stackTrace) {
+        throw _map(error, stackTrace);
+      });
+
+  @override
+  Future<void> removeMember({
+    required String groupId,
+    required String adminUid,
+    required String memberUid,
+  }) => _adminChange(groupId, adminUid, (tx, group) {
+    if (memberUid == adminUid || !group.isActiveMember(memberUid)) {
+      throw const NotAMember();
+    }
+    tx
+      ..update(_groups.doc(groupId), {
+        GroupFields.members: FieldValue.arrayRemove([memberUid]),
+        GroupFields.updatedAt: FieldValue.serverTimestamp(),
+      })
+      ..update(_member(groupId, memberUid), GroupMapper.removedMember(adminUid))
+      ..set(
+        _newAuditEntry(groupId),
+        _memberAudit(
+          AuditLogFields.actionRemove,
+          adminUid: adminUid,
+          memberUid: memberUid,
+          from: MemberFields.statusActive,
+          to: MemberFields.statusRemoved,
+        ),
+      );
+  });
+
+  @override
+  Future<void> approveMember({
+    required String groupId,
+    required String adminUid,
+    required String memberUid,
+  }) => _adminChange(groupId, adminUid, (tx, group) {
+    if (!group.isPending(memberUid)) throw const NotAMember();
+    tx
+      ..update(_groups.doc(groupId), {
+        GroupFields.pendingMembers: FieldValue.arrayRemove([memberUid]),
+        // Appended last, so `members` stays in join order.
+        GroupFields.members: FieldValue.arrayUnion([memberUid]),
+        GroupFields.updatedAt: FieldValue.serverTimestamp(),
+      })
+      ..update(_member(groupId, memberUid), {
+        MemberFields.status: MemberFields.statusActive,
+        MemberFields.joinedAt: FieldValue.serverTimestamp(),
+      })
+      ..set(
+        _newAuditEntry(groupId),
+        _memberAudit(
+          AuditLogFields.actionApprove,
+          adminUid: adminUid,
+          memberUid: memberUid,
+          from: MemberFields.statusPending,
+          to: MemberFields.statusActive,
+        ),
+      );
+  });
+
+  @override
+  Future<void> rejectMember({
+    required String groupId,
+    required String adminUid,
+    required String memberUid,
+  }) => _adminChange(groupId, adminUid, (tx, group) {
+    if (!group.isPending(memberUid)) throw const NotAMember();
+    tx
+      ..update(_groups.doc(groupId), {
+        GroupFields.pendingMembers: FieldValue.arrayRemove([memberUid]),
+        GroupFields.updatedAt: FieldValue.serverTimestamp(),
+      })
+      ..update(_member(groupId, memberUid), GroupMapper.removedMember(adminUid))
+      ..set(
+        _newAuditEntry(groupId),
+        _memberAudit(
+          AuditLogFields.actionReject,
+          adminUid: adminUid,
+          memberUid: memberUid,
+          from: MemberFields.statusPending,
+          to: MemberFields.statusRemoved,
+        ),
+      );
+  });
+
+  /// Reads the group fresh in a transaction, checks that [adminUid] is its
+  /// admin and lets [write] queue the changes.
+  Future<void> _adminChange(
+    String groupId,
+    String adminUid,
+    void Function(Transaction tx, Group group) write,
+  ) => _guard(() async {
+    await _firestore.runTransaction((tx) async {
+      final data = (await tx.get(_groups.doc(groupId))).data();
+      if (data == null) throw const NotAMember();
+      final group = GroupMapper.fromFirestore(groupId, data);
+      if (group.deletedAt != null) throw const NotAMember();
+      if (!group.isAdmin(adminUid)) throw const NotGroupAdmin();
+      write(tx, group);
+    });
+  });
+
+  static Map<String, Object?> _memberAudit(
+    String action, {
+    required String adminUid,
+    required String memberUid,
+    required String from,
+    required String to,
+  }) => GroupMapper.auditEntry(
+    action: action,
+    entity: AuditLogFields.entityMember,
+    entityId: memberUid,
+    uid: adminUid,
+    before: {MemberFields.status: from},
+    after: {MemberFields.status: to},
+  );
 
   /// Runs [action] and converts any error into a [GroupFailure].
   Future<T> _guard<T>(Future<T> Function() action) async {

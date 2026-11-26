@@ -12,6 +12,8 @@ import '../../features/auth/presentation/screens/recover_screen.dart';
 import '../../features/auth/presentation/screens/recover_sent_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/auth/presentation/screens/welcome_screen.dart';
+import '../../features/groups/presentation/group_detail_screen.dart';
+import '../../features/groups/presentation/groups_screen.dart';
 import '../../features/home/presentation/home_metrics.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/home/presentation/home_shell.dart';
@@ -41,6 +43,7 @@ abstract final class AppRoutes {
   static const String menu = '/menu';
   static const String accounts = '/accounts';
   static const String groups = '/groups';
+  static const String groupDetail = '/groups/:groupId';
   static const String newEvent = '/events/new';
   static const String newMovement = '/movements/new';
   static const String newIncome = '/movements/new/income';
@@ -58,6 +61,9 @@ abstract final class AppRoutes {
   /// Optional profile data after signing up. Outside `/auth`, so back never
   /// returns to the sign-in screens.
   static const String completeProfile = '/profile/complete';
+
+  /// Detail of the group [groupId].
+  static String groupDetailFor(String groupId) => '$groups/$groupId';
 
   /// Route of a signed-in user's [SessionDestination].
   static String forSession(SessionDestination destination) =>
@@ -248,7 +254,19 @@ List<RouteBase> overShellRoutes() => [
     pageBuilder: (context, state) => _menuPage(context, state),
   ),
   _pending(AppRoutes.accounts, HomeStrings.accounts),
-  _pending(AppRoutes.groups, HomeStrings.menuGroups),
+  GoRoute(
+    path: AppRoutes.groups,
+    parentNavigatorKey: rootNavigatorKey,
+    builder: (context, state) => const GroupsScreen(),
+    routes: [
+      GoRoute(
+        path: _child(AppRoutes.groupDetail, of: AppRoutes.groups),
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) =>
+            GroupDetailScreen(groupId: state.pathParameters['groupId']!),
+      ),
+    ],
+  ),
   GoRoute(
     path: AppRoutes.newMovement,
     parentNavigatorKey: rootNavigatorKey,

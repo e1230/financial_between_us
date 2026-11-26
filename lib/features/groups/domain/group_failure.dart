@@ -14,6 +14,17 @@ final class AlreadyMember extends GroupFailure {
   const AlreadyMember();
 }
 
+/// The user is no longer a member of the group (already left, or it was
+/// archived).
+final class NotAMember extends GroupFailure {
+  const NotAMember();
+}
+
+/// Only the admin of the group can do that.
+final class NotGroupAdmin extends GroupFailure {
+  const NotGroupAdmin();
+}
+
 /// The group password does not match.
 final class WrongGroupPassword extends GroupFailure {
   const WrongGroupPassword();

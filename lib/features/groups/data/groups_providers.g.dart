@@ -240,3 +240,177 @@ final class ActiveGroupProvider
 }
 
 String _$activeGroupHash() => r'a3ef81778cc93124e028f2e7c1843479f0770e30';
+
+/// The group [groupId] while the user is an active or pending member of
+/// it; `null` once they left, were removed or it was archived.
+
+@ProviderFor(groupById)
+final groupByIdProvider = GroupByIdFamily._();
+
+/// The group [groupId] while the user is an active or pending member of
+/// it; `null` once they left, were removed or it was archived.
+
+final class GroupByIdProvider
+    extends $FunctionalProvider<AsyncValue<Group?>, Group?, FutureOr<Group?>>
+    with $FutureModifier<Group?>, $FutureProvider<Group?> {
+  /// The group [groupId] while the user is an active or pending member of
+  /// it; `null` once they left, were removed or it was archived.
+  GroupByIdProvider._({
+    required GroupByIdFamily super.from,
+    required String super.argument,
+  }) : super(
+         retry: null,
+         name: r'groupByIdProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$groupByIdHash();
+
+  @override
+  String toString() {
+    return r'groupByIdProvider'
+        ''
+        '($argument)';
+  }
+
+  @$internal
+  @override
+  $FutureProviderElement<Group?> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<Group?> create(Ref ref) {
+    final argument = this.argument as String;
+    return groupById(ref, argument);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is GroupByIdProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$groupByIdHash() => r'2076d3b9bc93328927d51fad8a8ee9384b967486';
+
+/// The group [groupId] while the user is an active or pending member of
+/// it; `null` once they left, were removed or it was archived.
+
+final class GroupByIdFamily extends $Family
+    with $FunctionalFamilyOverride<FutureOr<Group?>, String> {
+  GroupByIdFamily._()
+    : super(
+        retry: null,
+        name: r'groupByIdProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  /// The group [groupId] while the user is an active or pending member of
+  /// it; `null` once they left, were removed or it was archived.
+
+  GroupByIdProvider call(String groupId) =>
+      GroupByIdProvider._(argument: groupId, from: this);
+
+  @override
+  String toString() => r'groupByIdProvider';
+}
+
+/// Live current members of [groupId], the admin first and then by join
+/// date (see [sortMembers]).
+
+@ProviderFor(groupMembers)
+final groupMembersProvider = GroupMembersFamily._();
+
+/// Live current members of [groupId], the admin first and then by join
+/// date (see [sortMembers]).
+
+final class GroupMembersProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<List<GroupMember>>,
+          List<GroupMember>,
+          Stream<List<GroupMember>>
+        >
+    with
+        $FutureModifier<List<GroupMember>>,
+        $StreamProvider<List<GroupMember>> {
+  /// Live current members of [groupId], the admin first and then by join
+  /// date (see [sortMembers]).
+  GroupMembersProvider._({
+    required GroupMembersFamily super.from,
+    required String super.argument,
+  }) : super(
+         retry: null,
+         name: r'groupMembersProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$groupMembersHash();
+
+  @override
+  String toString() {
+    return r'groupMembersProvider'
+        ''
+        '($argument)';
+  }
+
+  @$internal
+  @override
+  $StreamProviderElement<List<GroupMember>> $createElement(
+    $ProviderPointer pointer,
+  ) => $StreamProviderElement(pointer);
+
+  @override
+  Stream<List<GroupMember>> create(Ref ref) {
+    final argument = this.argument as String;
+    return groupMembers(ref, argument);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is GroupMembersProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$groupMembersHash() => r'7899e74183a193b25ae95b57788d1092b966f9a8';
+
+/// Live current members of [groupId], the admin first and then by join
+/// date (see [sortMembers]).
+
+final class GroupMembersFamily extends $Family
+    with $FunctionalFamilyOverride<Stream<List<GroupMember>>, String> {
+  GroupMembersFamily._()
+    : super(
+        retry: null,
+        name: r'groupMembersProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  /// Live current members of [groupId], the admin first and then by join
+  /// date (see [sortMembers]).
+
+  GroupMembersProvider call(String groupId) =>
+      GroupMembersProvider._(argument: groupId, from: this);
+
+  @override
+  String toString() => r'groupMembersProvider';
+}

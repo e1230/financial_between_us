@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../domain/group.dart';
 import '../domain/group_code_lookup.dart';
+import '../domain/group_member.dart';
 
 /// Field names of `groups/{groupId}`.
 abstract final class GroupFields {
@@ -23,10 +24,23 @@ abstract final class MemberFields {
   static const String status = 'status';
   static const String joinedAt = 'joinedAt';
 
+  /// Set when the user leaves (or cancels the request); the document stays.
+  static const String leftAt = 'leftAt';
+
+  /// Set when the admin removes the member (or rejects the request).
+  static const String removedAt = 'removedAt';
+  static const String removedBy = 'removedBy';
+
   static const String roleAdmin = 'admin';
   static const String roleMember = 'member';
   static const String statusActive = 'active';
   static const String statusPending = 'pending';
+
+  /// Former member: left the group or withdrew the request.
+  static const String statusLeft = 'left';
+
+  /// Removed by the admin, or request rejected.
+  static const String statusRemoved = 'removed';
 }
 
 /// Field names of `groupCodes/{code}`.
@@ -37,6 +51,9 @@ abstract final class GroupCodeFields {
   static const String requiresApproval = 'requiresApproval';
   static const String salt = 'salt';
   static const String createdAt = 'createdAt';
+
+  /// Set when the group is archived: the code no longer works.
+  static const String deletedAt = 'deletedAt';
 }
 
 /// Field of `secrets/password` and `joinProofs/{uid}`.
@@ -57,6 +74,13 @@ abstract final class AuditLogFields {
   static const String actionCreate = 'create';
   static const String actionJoin = 'join';
   static const String actionRequest = 'request';
+  static const String actionLeave = 'leave';
+  static const String actionCancelRequest = 'cancelRequest';
+  static const String actionTransferOwnership = 'transferOwnership';
+  static const String actionArchive = 'archive';
+  static const String actionRemove = 'remove';
+  static const String actionApprove = 'approve';
+  static const String actionReject = 'reject';
   static const String entityGroup = 'group';
   static const String entityMember = 'member';
 }
@@ -112,6 +136,49 @@ abstract final class GroupMapper {
     MemberFields.joinedAt: FieldValue.serverTimestamp(),
   };
 
+  /// Changes of a member document when the user leaves the group.
+  static Map<String, Object?> leftMember() => {
+    MemberFields.role: MemberFields.roleMember,
+    MemberFields.status: MemberFields.statusLeft,
+    MemberFields.leftAt: FieldValue.serverTimestamp(),
+  };
+
+  /// Whether a member document belongs to a current member (active or
+  /// pending), not to someone who left.
+  static bool isCurrentMember(Map<String, dynamic>? data) {
+    if (data == null) return false;
+    final status = data[MemberFields.status];
+    return status != MemberFields.statusLeft &&
+        status != MemberFields.statusRemoved;
+  }
+
+  /// Reads `groups/{groupId}/members/{uid}`. An unknown role is a plain
+  /// member and an unknown status counts as active.
+  static GroupMember memberFromFirestore(
+    String uid,
+    Map<String, dynamic> data,
+  ) => GroupMember(
+    uid: uid,
+    role: data[MemberFields.role] == MemberFields.roleAdmin
+        ? MemberRole.admin
+        : MemberRole.member,
+    status: switch (data[MemberFields.status]) {
+      MemberFields.statusPending => MemberStatus.pending,
+      MemberFields.statusLeft => MemberStatus.left,
+      MemberFields.statusRemoved => MemberStatus.removed,
+      _ => MemberStatus.active,
+    },
+    joinedAt: _date(data[MemberFields.joinedAt]),
+  );
+
+  /// Changes of a member document removed by [adminUid] (also a rejected
+  /// request).
+  static Map<String, Object?> removedMember(String adminUid) => {
+    MemberFields.status: MemberFields.statusRemoved,
+    MemberFields.removedAt: FieldValue.serverTimestamp(),
+    MemberFields.removedBy: adminUid,
+  };
+
   /// `groupCodes/{code}`.
   static Map<String, Object?> codeEntry({
     required String groupId,
@@ -127,11 +194,12 @@ abstract final class GroupMapper {
     GroupCodeFields.createdAt: FieldValue.serverTimestamp(),
   };
 
-  /// Reads `groupCodes/{code}`, or `null` if malformed.
+  /// Reads `groupCodes/{code}`, or `null` if malformed or archived.
   static GroupCodeLookup? lookupFromFirestore(
     String code,
     Map<String, dynamic> data,
   ) {
+    if (data[GroupCodeFields.deletedAt] != null) return null;
     final groupId = data[GroupCodeFields.groupId];
     if (groupId is! String || groupId.isEmpty) return null;
     return GroupCodeLookup(

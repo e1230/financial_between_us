@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../theme/app_tokens.dart';
+import '../utils/accent_color.dart';
 
 /// Colors of a [FbuPillButton].
 @immutable
@@ -13,6 +14,17 @@ class FbuPillButtonColors {
     required this.disabledForeground,
     required this.ripple,
   });
+
+  /// Red pill of a destructive confirmation (sign out, leave a group).
+  factory FbuPillButtonColors.destructive(AppTokens tokens) =>
+      FbuPillButtonColors(
+        background: tokens.negative,
+        pressedBackground: AccentColor.pressed(tokens.negative),
+        disabledBackground: tokens.surfaceVariant,
+        foreground: tokens.onAccent,
+        disabledForeground: tokens.textDisabled,
+        ripple: tokens.onAccent.withValues(alpha: FbuPillButton.rippleOpacity),
+      );
 
   final Color background;
   final Color pressedBackground;

@@ -5,7 +5,9 @@ import 'package:financial_between_us/features/groups/domain/active_group.dart';
 import 'package:financial_between_us/features/groups/domain/group.dart';
 import 'package:financial_between_us/features/groups/domain/group_code_lookup.dart';
 import 'package:financial_between_us/features/groups/domain/group_failure.dart';
+import 'package:financial_between_us/features/groups/domain/group_member.dart';
 import 'package:financial_between_us/features/groups/domain/join_outcome.dart';
+import 'package:financial_between_us/features/groups/domain/leave_plan.dart';
 
 /// Groups in memory. [passwords] maps a join code to its password.
 class FakeGroupsRepository implements GroupsRepository {
@@ -18,6 +20,9 @@ class FakeGroupsRepository implements GroupsRepository {
 
   /// Thrown by the next request.
   GroupFailure? failure;
+
+  /// When each uid joined (or asked to join); defaults to the group date.
+  final Map<String, DateTime> joinedAt = {};
 
   /// Code given to the next created group.
   String nextCode = 'NUE-2345';
@@ -123,5 +128,111 @@ class FakeGroupsRepository implements GroupsRepository {
     }
     _put(current.copyWith(memberUids: [...current.memberUids, uid]));
     return Joined(group.groupId);
+  }
+
+  @override
+  Future<void> leave({required String groupId, required String uid}) async {
+    calls.add('leave:$groupId');
+    _throwIfNeeded();
+    final current = groups.where((g) => g.id == groupId).firstOrNull;
+    if (current == null) throw const NotAMember();
+    final without = current.memberUids.where((u) => u != uid).toList();
+    _put(switch (planLeave(current, uid)) {
+      CancelRequest() => current.copyWith(
+        pendingUids: current.pendingUids.where((u) => u != uid).toList(),
+      ),
+      LeaveAsMember() => current.copyWith(memberUids: without),
+      LeaveAndTransfer(:final newOwnerUid) => current.copyWith(
+        memberUids: without,
+        ownerUid: newOwnerUid,
+      ),
+      LeaveAndArchive() => current.copyWith(
+        memberUids: without,
+        deletedAt: DateTime(2026, 11, 25),
+      ),
+    });
+  }
+
+  @override
+  Stream<List<GroupMember>> watchMembers(String groupId) async* {
+    List<GroupMember> members() {
+      final group = groups.where((g) => g.id == groupId).firstOrNull;
+      if (group == null) return const [];
+      GroupMember member(String uid, MemberStatus status) => GroupMember(
+        uid: uid,
+        role: group.isAdmin(uid) ? MemberRole.admin : MemberRole.member,
+        status: status,
+        joinedAt: joinedAt[uid] ?? group.createdAt,
+      );
+      return [
+        for (final uid in group.memberUids) member(uid, MemberStatus.active),
+        for (final uid in group.pendingUids) member(uid, MemberStatus.pending),
+      ];
+    }
+
+    yield members();
+    yield* _changes.stream.map((_) => members());
+  }
+
+  Group _asAdmin(String groupId, String adminUid) {
+    final group = groups.where((g) => g.id == groupId).firstOrNull;
+    if (group == null) throw const NotAMember();
+    if (!group.isAdmin(adminUid)) throw const NotGroupAdmin();
+    return group;
+  }
+
+  @override
+  Future<void> removeMember({
+    required String groupId,
+    required String adminUid,
+    required String memberUid,
+  }) async {
+    calls.add('remove:$memberUid');
+    _throwIfNeeded();
+    final group = _asAdmin(groupId, adminUid);
+    if (memberUid == adminUid || !group.isActiveMember(memberUid)) {
+      throw const NotAMember();
+    }
+    _put(
+      group.copyWith(
+        memberUids: group.memberUids.where((u) => u != memberUid).toList(),
+      ),
+    );
+  }
+
+  @override
+  Future<void> approveMember({
+    required String groupId,
+    required String adminUid,
+    required String memberUid,
+  }) async {
+    calls.add('approve:$memberUid');
+    _throwIfNeeded();
+    final group = _asAdmin(groupId, adminUid);
+    if (!group.isPending(memberUid)) throw const NotAMember();
+    joinedAt[memberUid] = DateTime(2026, 11, 25);
+    _put(
+      group.copyWith(
+        pendingUids: group.pendingUids.where((u) => u != memberUid).toList(),
+        memberUids: [...group.memberUids, memberUid],
+      ),
+    );
+  }
+
+  @override
+  Future<void> rejectMember({
+    required String groupId,
+    required String adminUid,
+    required String memberUid,
+  }) async {
+    calls.add('reject:$memberUid');
+    _throwIfNeeded();
+    final group = _asAdmin(groupId, adminUid);
+    if (!group.isPending(memberUid)) throw const NotAMember();
+    _put(
+      group.copyWith(
+        pendingUids: group.pendingUids.where((u) => u != memberUid).toList(),
+      ),
+    );
   }
 }

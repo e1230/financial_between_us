@@ -35,3 +35,9 @@ Stream<UserProfile?> currentUserProfile(Ref ref) async* {
   }
   yield* ref.watch(userProfileRepositoryProvider).watch(user.uid);
 }
+
+/// Live profile of any user (friends see each other's name, nickname,
+/// photo and color); `null` if it does not exist.
+@riverpod
+Stream<UserProfile?> userProfile(Ref ref, String uid) =>
+    ref.watch(userProfileRepositoryProvider).watch(uid);

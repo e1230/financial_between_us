@@ -5,6 +5,7 @@ import '../../../core/data/firestore_providers.dart';
 import '../../auth/data/auth_providers.dart';
 import '../domain/active_group.dart';
 import '../domain/group.dart';
+import '../domain/group_member.dart';
 import 'groups_repository.dart';
 import 'selected_group_repository.dart';
 
@@ -56,4 +57,28 @@ Future<Group?> activeGroup(Ref ref) async {
     selectedId: selectedId,
     uid: user.uid,
   );
+}
+
+/// The group [groupId] while the user is an active or pending member of
+/// it; `null` once they left, were removed or it was archived.
+@riverpod
+Future<Group?> groupById(Ref ref, String groupId) async {
+  final groups = await ref.watch(myGroupsProvider.future);
+  return groups.where((g) => g.id == groupId).firstOrNull;
+}
+
+/// Live current members of [groupId], the admin first and then by join
+/// date (see [sortMembers]).
+@riverpod
+Stream<List<GroupMember>> groupMembers(Ref ref, String groupId) async* {
+  final group = await ref.watch(groupByIdProvider(groupId).future);
+  if (group == null) {
+    yield const [];
+    return;
+  }
+  final ownerUid = group.ownerUid;
+  yield* ref
+      .watch(groupsRepositoryProvider)
+      .watchMembers(groupId)
+      .map((members) => sortMembers(members, ownerUid));
 }

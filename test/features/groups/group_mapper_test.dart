@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:financial_between_us/features/groups/data/group_mapper.dart';
 import 'package:financial_between_us/features/groups/data/group_password_hasher.dart';
+import 'package:financial_between_us/features/groups/domain/group_member.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -71,6 +72,74 @@ void main() {
     expect(lookup.passwordSalt, 'abc');
     expect(lookup.requiresApproval, isTrue);
     expect(GroupMapper.lookupFromFirestore('X', {'name': 'x'}), isNull);
+  });
+
+  test('the code of an archived group finds nothing', () {
+    expect(
+      GroupMapper.lookupFromFirestore('LIQ-7K4P', {
+        'gid': 'g1',
+        'name': 'Low IQ Group',
+        'deletedAt': Timestamp.fromDate(DateTime.utc(2026, 11, 25)),
+      }),
+      isNull,
+    );
+  });
+
+  test('reads member documents', () {
+    final joined = DateTime.utc(2026, 11, 20);
+    final admin = GroupMapper.memberFromFirestore('u1', {
+      'role': 'admin',
+      'status': 'active',
+      'joinedAt': Timestamp.fromDate(joined),
+    });
+    expect(admin.role, MemberRole.admin);
+    expect(admin.status, MemberStatus.active);
+    expect(admin.joinedAt!.isAtSameMomentAs(joined), isTrue);
+
+    final pending = GroupMapper.memberFromFirestore('u2', {
+      'role': 'member',
+      'status': 'pending',
+      'joinedAt': null,
+    });
+    expect(pending.status, MemberStatus.pending);
+    expect(pending.joinedAt, isNull);
+
+    expect(
+      GroupMapper.memberFromFirestore('u3', {'status': 'removed'}).status,
+      MemberStatus.removed,
+    );
+    final odd = GroupMapper.memberFromFirestore('u4', {'role': 'x'});
+    expect(odd.role, MemberRole.member);
+    expect(odd.status, MemberStatus.active);
+  });
+
+  test('a removed member is no longer a member', () {
+    final data = GroupMapper.removedMember('admin');
+    expect(data['status'], 'removed');
+    expect(data['removedBy'], 'admin');
+    expect(data['removedAt'], isA<FieldValue>());
+    expect(GroupMapper.isCurrentMember({'status': 'removed'}), isFalse);
+  });
+
+  test('members are listed admin first, then by join date', () {
+    final sorted = sortMembers([
+      GroupMember(uid: 'c', joinedAt: DateTime(2026, 3)),
+      const GroupMember(uid: 'd'),
+      GroupMember(uid: 'b', joinedAt: DateTime(2026, 2)),
+      GroupMember(uid: 'owner', joinedAt: DateTime(2026, 5)),
+    ], 'owner');
+    expect(sorted.map((m) => m.uid), ['owner', 'b', 'c', 'd']);
+  });
+
+  test('leaving keeps the member document, marked left', () {
+    final data = GroupMapper.leftMember();
+    expect(data['status'], 'left');
+    expect(data['role'], 'member');
+    expect(data['leftAt'], isA<FieldValue>());
+    expect(GroupMapper.isCurrentMember(data), isFalse);
+    expect(GroupMapper.isCurrentMember({'status': 'active'}), isTrue);
+    expect(GroupMapper.isCurrentMember({'status': 'pending'}), isTrue);
+    expect(GroupMapper.isCurrentMember(null), isFalse);
   });
 
   test('password hashes depend on salt and password, never store it', () {
