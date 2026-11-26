@@ -13,6 +13,7 @@ import 'package:financial_between_us/features/home/presentation/menu/avatar_menu
 import 'package:financial_between_us/features/home/presentation/widgets/ring_avatar.dart';
 import 'package:financial_between_us/features/profile/data/profile_providers.dart';
 import 'package:financial_between_us/features/profile/domain/user_profile.dart';
+import 'package:financial_between_us/features/profile/presentation/profile_screen.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -455,6 +456,72 @@ void main() {
       await tap(tester, find.widgetWithText(FbuPillButton, 'Cerrar sesión'));
       expect(auth.calls, ['signOut']);
       expect(find.text(_welcome), findsOneWidget);
+    });
+
+    testWidgets('the Perfil tab shows the profile settings', (tester) async {
+      await pumpHome(tester);
+      await tap(tester, find.text('Perfil'));
+
+      expect(find.byType(ProfileScreen), findsOneWidget);
+      expect(find.text('Tu color'), findsOneWidget);
+      expect(find.text('juan@correo.com'), findsOneWidget);
+    });
+
+    testWidgets('the profile row of the menu opens the Perfil tab', (
+      tester,
+    ) async {
+      await pumpHome(tester);
+      await tap(tester, find.bySemanticsLabel('Abrir menú'));
+      await tap(tester, find.text('@juan'));
+
+      expect(find.byType(AvatarMenuScreen), findsNothing);
+      expect(find.byType(ProfileScreen), findsOneWidget);
+
+      // Cancelar goes back to Inicio.
+      await tap(tester, find.text('Cancelar'));
+      expect(find.text('Hola, Juan'), findsOneWidget);
+    });
+
+    testWidgets('from the menu the avatar flies to the profile, not home', (
+      tester,
+    ) async {
+      await pumpHome(tester);
+      await tap(tester, find.bySemanticsLabel('Abrir menú'));
+      await tester.tap(find.text('@juan'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 225));
+
+      // Mid-flight it grows from 64 toward the 96 dp profile avatar.
+      final sizes = [
+        for (final e in find.byType(RingAvatar).evaluate())
+          tester.getSize(find.byWidget(e.widget)).width,
+      ];
+      expect(sizes.any((w) => w > 64 && w < 96), isTrue, reason: '$sizes');
+      expect(sizes.any((w) => w < 64), isFalse, reason: '$sizes');
+
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.byType(ProfileScreen), findsOneWidget);
+    });
+
+    testWidgets('the header avatar shows again after the menu went to '
+        'another tab', (tester) async {
+      await pumpHome(tester);
+      for (final option in ['@juan', 'Saldos']) {
+        await tap(tester, find.bySemanticsLabel('Abrir menú'));
+        await tap(tester, find.text(option).last);
+        expect(find.byType(AvatarMenuScreen), findsNothing);
+
+        // Back to Inicio.
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(find.text('Hola, Juan'), findsOneWidget);
+        expect(
+          find.byType(RingAvatar),
+          findsOneWidget,
+          reason: 'after $option the avatar was left as an empty placeholder',
+        );
+      }
     });
 
     testWidgets('the avatar flies from 44 to 64 dp into the menu', (

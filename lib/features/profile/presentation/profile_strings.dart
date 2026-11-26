@@ -1,3 +1,7 @@
+import '../../auth/domain/auth_failure.dart';
+import '../../auth/domain/auth_validators.dart';
+import '../domain/profile_validators.dart';
+
 /// User-facing texts of the profile module (Spanish, Colombia).
 abstract final class ProfileStrings {
   // Complete profile
@@ -21,6 +25,55 @@ abstract final class ProfileStrings {
   static const uploadError =
       'No pudimos subir la foto. Revisa tu conexión e intenta de nuevo.';
   static const pickError = 'No pudimos abrir la foto. Intenta con otra.';
+
+  // Profile (tab)
+  static const profileTitle = 'Perfil';
+  static const profileSubtitle = 'Así te ven tus amigos en los grupos.';
+  static const usernameLabel = 'Usuario';
+  static const emailLabel = 'Correo';
+  static const displayNameEditHelper = 'Así aparecerás en los grupos.';
+  static const accountLabel = 'Tu cuenta';
+  static const readOnlyHelper = 'Tu usuario y tu correo no se pueden cambiar.';
+  static const cancel = 'Cancelar';
+  static const saved = 'Perfil actualizado.';
+  static const passwordLabel = 'Contraseña';
+  static const passwordMask = '••••••••';
+  static const changePassword = 'Cambiar';
+  static const changePasswordAction = 'Cambiar contraseña';
+  static const signedInWithGoogle = 'Ingresado con Google';
+  static const googlePasswordHelper = 'Tu contraseña la maneja Google.';
+
+  // Change password popup
+  static const changePasswordTitle = 'Cambiar contraseña';
+  static const changePasswordSubtitle =
+      'Por seguridad, primero escribe tu contraseña actual.';
+  static const currentPassword = 'Contraseña actual';
+  static const newPassword = 'Nueva contraseña';
+  static const confirmPassword = 'Confirma la nueva contraseña';
+  static const newPasswordHelper = 'Mínimo 8 caracteres.';
+  static const changingPassword = 'Cambiando contraseña';
+  static const passwordChanged = 'Contraseña actualizada.';
+  static const wrongCurrentPassword = 'La contraseña actual no es correcta.';
+
+  /// Message of a field failure of the profile forms.
+  static String field(ProfileFieldFailure failure) => switch (failure) {
+    DisplayNameTooLong() => displayNameTooLong,
+    CurrentPasswordRequired() => 'Escribe tu contraseña actual.',
+    NewPasswordTooShort() =>
+      'Usa al menos ${AuthValidators.minPasswordLength} caracteres.',
+    SameAsCurrentPassword() => 'Usa una contraseña distinta a la actual.',
+    PasswordsDoNotMatch() => 'Las contraseñas no coinciden.',
+  };
+
+  /// Message of a failed password change (shown in the popup's banner).
+  static String passwordFailure(AuthFailure failure) => switch (failure) {
+    InvalidCredentials() => wrongCurrentPassword,
+    WeakPassword() => 'Usa una contraseña más segura.',
+    TooManyRequests() =>
+      'Demasiados intentos. Espera unos minutos e intenta de nuevo.',
+    NetworkFailure() => 'Sin conexión. Revisa tu internet e intenta de nuevo.',
+    _ => 'No pudimos cambiar la contraseña. Intenta de nuevo.',
+  };
 
   // Avatar
   static const avatarLabel = 'Foto de perfil';

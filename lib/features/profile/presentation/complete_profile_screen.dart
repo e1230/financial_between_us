@@ -17,16 +17,15 @@ import '../../auth/presentation/auth_text_styles.dart';
 import '../../auth/presentation/widgets/auth_banner.dart';
 import '../../auth/presentation/widgets/auth_scaffold.dart';
 import '../../auth/presentation/widgets/fbu_text_field.dart';
-import '../data/avatar_picker.dart';
 import '../data/avatar_uploader.dart';
 import '../data/profile_providers.dart';
 import '../domain/profile_validators.dart';
 import '../domain/user_profile.dart';
+import 'pick_avatar.dart';
 import 'profile_strings.dart';
 import 'widgets/accent_color_picker.dart';
 import 'widgets/avatar_editor.dart';
-import 'widgets/avatar_source_sheet.dart';
-import 'widgets/complete_profile_skeleton.dart';
+import 'widgets/profile_form_skeleton.dart';
 
 /// Optional profile data after signing up: photo (Cloudinary), name and
 /// color. "Omitir por ahora" keeps the defaults; both mark the profile as
@@ -149,40 +148,24 @@ class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
   }
 
   Future<void> _changePhoto(UserProfile profile) async {
-    final action = await showAvatarSourceSheet(
-      context,
-      canRemove: _image(profile) != null,
-    );
-    if (action == null || !mounted) return;
-    if (action == AvatarAction.remove) {
-      setState(() {
-        _localPhotoPath = null;
-        _photoRemoved = true;
-      });
-      return;
-    }
-
-    final tokens = context.tokens;
     try {
-      final path = await ref
-          .read(avatarPickerProvider)
-          .pick(
-            action == AvatarAction.camera
-                ? AvatarSource.camera
-                : AvatarSource.gallery,
-            AvatarCropStyle(
-              title: ProfileStrings.cropTitle,
-              background: tokens.background,
-              toolbar: tokens.surface,
-              foreground: tokens.textPrimary,
-              active: Color(_colorValue ?? profile.colorValue),
-            ),
-          );
-      if (path == null || !mounted) return;
+      final change = await pickAvatar(
+        context,
+        ref,
+        canRemove: _image(profile) != null,
+        accent: Color(_colorValue ?? profile.colorValue),
+      );
+      if (change == null || !mounted) return;
       setState(() {
-        _localPhotoPath = path;
-        _photoRemoved = false;
-        _banner = null;
+        switch (change) {
+          case AvatarPhotoPicked(:final path):
+            _localPhotoPath = path;
+            _photoRemoved = false;
+            _banner = null;
+          case AvatarPhotoRemoved():
+            _localPhotoPath = null;
+            _photoRemoved = true;
+        }
       });
     } catch (error, stackTrace) {
       _log('Could not pick the avatar', error, stackTrace);
@@ -195,11 +178,10 @@ class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
     setState(() => _nameError = _nameMessage(value));
   }
 
-  static String? _nameMessage(String value) =>
-      switch (ProfileValidators.displayName(value)) {
-        DisplayNameTooLong() => ProfileStrings.displayNameTooLong,
-        null => null,
-      };
+  static String? _nameMessage(String value) {
+    final failure = ProfileValidators.displayName(value);
+    return failure == null ? null : ProfileStrings.field(failure);
+  }
 
   Future<void> _save(UserProfile profile, {required bool skip}) async {
     if (_busy) return;
@@ -269,7 +251,7 @@ class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
         _fetchFailed) {
       body = _error();
     } else {
-      body = const CompleteProfileSkeleton();
+      body = const ProfileFormSkeleton();
     }
 
     final accent = Color(colorValue ?? UserProfile.defaultColorValue);

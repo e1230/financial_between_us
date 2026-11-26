@@ -72,6 +72,19 @@ abstract final class UserProfileMapper {
     UserProfileFields.updatedAt: FieldValue.serverTimestamp(),
   };
 
+  /// Fields written when the user edits their profile. The nickname, email
+  /// and `profileCompleted` are left as they are.
+  static Map<String, Object?> update({
+    required String displayName,
+    required String? photoUrl,
+    required int colorValue,
+  }) => {
+    UserProfileFields.displayName: displayName,
+    UserProfileFields.photoUrl: photoUrl,
+    UserProfileFields.color: AccentColor.toHex(colorValue),
+    UserProfileFields.updatedAt: FieldValue.serverTimestamp(),
+  };
+
   static DateTime? _date(Object? value) =>
       value is Timestamp ? value.toDate() : null;
 }

@@ -104,7 +104,7 @@ class AvatarMenuScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     InkWell(
-                      onTap: () => context.push(AppRoutes.profileSettings),
+                      onTap: () => context.go(AppRoutes.profile),
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(
                           minHeight: HomeMetrics.menuProfileMinHeight,

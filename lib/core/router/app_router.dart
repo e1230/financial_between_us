@@ -19,6 +19,7 @@ import '../../features/home/presentation/home_strings.dart';
 import '../../features/home/presentation/menu/avatar_menu_screen.dart';
 import '../../features/onboarding/presentation/walkthrough_screen.dart';
 import '../../features/profile/presentation/complete_profile_screen.dart';
+import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/splash/presentation/splash_screen.dart';
 import '../theme/app_tokens.dart';
 import '../widgets/pending_screen.dart';
@@ -40,7 +41,6 @@ abstract final class AppRoutes {
   static const String menu = '/menu';
   static const String accounts = '/accounts';
   static const String groups = '/groups';
-  static const String profileSettings = '/profile/settings';
   static const String newEvent = '/events/new';
   static const String newMovement = '/movements/new';
   static const String newIncome = '/movements/new/income';
@@ -231,14 +231,7 @@ StatefulShellRoute homeShellRoute() {
         routes: [
           GoRoute(
             path: AppRoutes.profile,
-            builder: (context, state) =>
-                const PendingScreen(name: HomeStrings.tabProfile),
-            routes: [
-              _pending(
-                _child(AppRoutes.profileSettings, of: AppRoutes.profile),
-                HomeStrings.profileSettings,
-              ),
-            ],
+            builder: (context, state) => const ProfileScreen(),
           ),
         ],
       ),

@@ -29,16 +29,7 @@ class HomeHeader extends ConsumerWidget {
             excludeSemantics: true,
             child: _CircleTap(
               onTap: () => context.push(AppRoutes.menu),
-              child: HeroMode(
-                enabled: !reduceMotion,
-                child: const Hero(
-                  tag: RingAvatar.heroTag,
-                  child: SizedBox.square(
-                    dimension: HomeMetrics.headerAvatarSize,
-                    child: _HeaderAvatar(),
-                  ),
-                ),
-              ),
+              child: _HeaderAvatarHero(reduceMotion: reduceMotion),
             ),
           ),
           SizedBox(width: tokens.space1),
@@ -71,6 +62,52 @@ class HomeHeader extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The header avatar as the Hero of the menu.
+///
+/// It only takes part in flights while Inicio is visible (its tickers are
+/// on): the profile tab has its own avatar Hero with the same tag.
+///
+/// Opening the menu leaves this Hero as a hidden placeholder until a flight
+/// comes back to it. When the menu closes elsewhere (to Perfil, Eventos or
+/// Saldos) nothing does, so each time Inicio becomes visible again the Hero
+/// is rebuilt from scratch, without the placeholder.
+class _HeaderAvatarHero extends StatefulWidget {
+  const _HeaderAvatarHero({required this.reduceMotion});
+
+  final bool reduceMotion;
+
+  @override
+  State<_HeaderAvatarHero> createState() => _HeaderAvatarHeroState();
+}
+
+class _HeaderAvatarHeroState extends State<_HeaderAvatarHero> {
+  bool _visible = true;
+  int _generation = 0;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final visible = TickerMode.valuesOf(context).enabled;
+    if (visible && !_visible) _generation++;
+    _visible = visible;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return HeroMode(
+      enabled: !widget.reduceMotion && _visible,
+      child: Hero(
+        key: ValueKey(_generation),
+        tag: RingAvatar.heroTag,
+        child: const SizedBox.square(
+          dimension: HomeMetrics.headerAvatarSize,
+          child: _HeaderAvatar(),
+        ),
       ),
     );
   }

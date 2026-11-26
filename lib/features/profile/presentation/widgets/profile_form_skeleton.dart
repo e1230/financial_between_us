@@ -5,9 +5,9 @@ import '../../../auth/presentation/auth_metrics.dart';
 import '../profile_metrics.dart';
 import '../profile_strings.dart';
 
-/// Placeholder of "Completa tu perfil" while the profile loads.
-class CompleteProfileSkeleton extends StatelessWidget {
-  const CompleteProfileSkeleton({super.key});
+/// Placeholder of the profile forms while the profile loads.
+class ProfileFormSkeleton extends StatelessWidget {
+  const ProfileFormSkeleton({super.key});
 
   @override
   Widget build(BuildContext context) {

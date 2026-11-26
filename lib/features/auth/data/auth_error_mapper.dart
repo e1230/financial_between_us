@@ -25,7 +25,9 @@ abstract final class AuthErrorMapper {
     'wrong-password' ||
     'user-not-found' ||
     'invalid-email' ||
-    'user-disabled' => const InvalidCredentials(),
+    'user-disabled' ||
+    // Only after a failed re-authentication (changing the password).
+    'requires-recent-login' => const InvalidCredentials(),
     'email-already-in-use' => const EmailAlreadyInUse(),
     'weak-password' => const WeakPassword(),
     'too-many-requests' => const TooManyRequests(),

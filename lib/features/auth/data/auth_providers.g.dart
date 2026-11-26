@@ -140,3 +140,51 @@ final class AuthStateChangesProvider
 }
 
 String _$authStateChangesHash() => r'2d785475192667f9615b8c8ca8c97c509d740bad';
+
+/// How the signed-in user authenticates, or `null` when signed out (or with
+/// an unknown provider).
+
+@ProviderFor(currentSignInMethod)
+final currentSignInMethodProvider = CurrentSignInMethodProvider._();
+
+/// How the signed-in user authenticates, or `null` when signed out (or with
+/// an unknown provider).
+
+final class CurrentSignInMethodProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<SignInMethod?>,
+          SignInMethod?,
+          FutureOr<SignInMethod?>
+        >
+    with $FutureModifier<SignInMethod?>, $FutureProvider<SignInMethod?> {
+  /// How the signed-in user authenticates, or `null` when signed out (or with
+  /// an unknown provider).
+  CurrentSignInMethodProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'currentSignInMethodProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$currentSignInMethodHash();
+
+  @$internal
+  @override
+  $FutureProviderElement<SignInMethod?> $createElement(
+    $ProviderPointer pointer,
+  ) => $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<SignInMethod?> create(Ref ref) {
+    return currentSignInMethod(ref);
+  }
+}
+
+String _$currentSignInMethodHash() =>
+    r'e0c1377936778ce5e94730308fb6a4669eaa09d7';

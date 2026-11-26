@@ -43,12 +43,21 @@ class FakeSharedPreferencesAsync extends Fake
   }
 }
 
+class FakeUserInfo extends Fake implements UserInfo {
+  FakeUserInfo(this.providerId);
+
+  @override
+  final String providerId;
+}
+
 class FakeUser extends Fake implements User {
   FakeUser({
     this.uid = 'uid-1',
     this.email = 'juan@correo.com',
     this.displayName,
-  });
+    this.password = 'cuentasclaras',
+    List<String> providerIds = const ['password'],
+  }) : providerData = [for (final id in providerIds) FakeUserInfo(id)];
 
   @override
   final String uid;
@@ -59,7 +68,43 @@ class FakeUser extends Fake implements User {
   @override
   String? displayName;
 
+  @override
+  final List<UserInfo> providerData;
+
+  /// Current password, checked by [reauthenticateWithCredential].
+  String password;
+
+  /// Thrown by the next [updatePassword] (e.g. `weak-password`).
+  FirebaseAuthException? updatePasswordError;
+
+  bool reauthenticated = false;
   bool deleted = false;
+
+  @override
+  Future<UserCredential> reauthenticateWithCredential(
+    AuthCredential credential,
+  ) async {
+    if (credential is! EmailAuthCredential ||
+        credential.email != email ||
+        credential.password != password) {
+      throw FirebaseAuthException(code: 'invalid-credential');
+    }
+    reauthenticated = true;
+    return FakeUserCredential(this);
+  }
+
+  @override
+  Future<void> updatePassword(String newPassword) async {
+    final pending = updatePasswordError;
+    if (pending != null) {
+      updatePasswordError = null;
+      throw pending;
+    }
+    if (!reauthenticated) {
+      throw FirebaseAuthException(code: 'requires-recent-login');
+    }
+    password = newPassword;
+  }
 
   @override
   Future<void> delete() async => deleted = true;
@@ -230,6 +275,12 @@ class FakeUserProfileRepository implements UserProfileRepository {
   /// Thrown by the next [completeProfile].
   Object? completeError;
 
+  /// Thrown by the next [updateProfile].
+  Object? updateError;
+
+  /// Arguments of every [updateProfile] call.
+  final List<UserProfile> updates = [];
+
   final StreamController<UserProfile?> _changes =
       StreamController<UserProfile?>.broadcast();
 
@@ -288,6 +339,27 @@ class FakeUserProfileRepository implements UserProfileRepository {
         profileCompleted: true,
       ),
     );
+  }
+
+  @override
+  Future<void> updateProfile({
+    required String uid,
+    required String displayName,
+    required String? photoUrl,
+    required int colorValue,
+  }) async {
+    final pending = updateError;
+    if (pending != null) {
+      updateError = null;
+      throw pending;
+    }
+    final updated = profiles[uid]!.copyWith(
+      displayName: displayName,
+      photoUrl: photoUrl,
+      colorValue: colorValue,
+    );
+    updates.add(updated);
+    _put(updated);
   }
 
   void _put(UserProfile profile) {
@@ -350,6 +422,12 @@ class FakeAuthRepository implements AuthRepository {
 
   @override
   Future<void> sendPasswordReset(String email) => _run('reset:$email');
+
+  @override
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) => _run('changePassword:$currentPassword:$newPassword');
 
   @override
   Future<void> signOut() => _run('signOut');

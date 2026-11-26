@@ -14,6 +14,8 @@ class AvatarEditor extends StatelessWidget {
     required this.onTap,
     this.image,
     this.enabled = true,
+    this.heroTag,
+    this.flightShuttleBuilder,
   });
 
   final String initial;
@@ -21,6 +23,11 @@ class AvatarEditor extends StatelessWidget {
   final ImageProvider? image;
   final VoidCallback onTap;
   final bool enabled;
+
+  /// When set, the photo is a [Hero] with this tag (the badge is not part of
+  /// the flight).
+  final Object? heroTag;
+  final HeroFlightShuttleBuilder? flightShuttleBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -36,12 +43,14 @@ class AvatarEditor extends StatelessWidget {
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-              UserAvatar(
-                initial: initial,
-                color: color,
-                image: image,
-                size: ProfileMetrics.avatarSize,
-                semanticsLabel: ProfileStrings.avatarLabel,
+              _hero(
+                UserAvatar(
+                  initial: initial,
+                  color: color,
+                  image: image,
+                  size: ProfileMetrics.avatarSize,
+                  semanticsLabel: ProfileStrings.avatarLabel,
+                ),
               ),
               Positioned(
                 right: 0,
@@ -68,6 +77,16 @@ class AvatarEditor extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _hero(Widget avatar) {
+    final tag = heroTag;
+    if (tag == null) return avatar;
+    return Hero(
+      tag: tag,
+      flightShuttleBuilder: flightShuttleBuilder,
+      child: avatar,
     );
   }
 }

@@ -7,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/startup/app_startup.dart';
 import '../../../core/startup/initial_destination.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../onboarding/presentation/walkthrough_pages.dart';
 import 'fbu_splash_animation.dart';
 import 'startup_error_view.dart';
@@ -64,13 +65,16 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     });
 
     final destination = ref.watch(initialDestinationProvider);
-    if (destination.hasError && !destination.isLoading) {
-      return StartupErrorView(onRetry: _retry);
-    }
-
-    return FbuSplashAnimation(
-      ready: destination.hasValue && !destination.isLoading,
-      onFinished: () => _navigate(destination.requireValue),
+    // The splash is the brand: always the brand green, never the user's
+    // color (the app theme switches to it as soon as the profile loads).
+    return Theme(
+      data: AppTheme.dark,
+      child: destination.hasError && !destination.isLoading
+          ? StartupErrorView(onRetry: _retry)
+          : FbuSplashAnimation(
+              ready: destination.hasValue && !destination.isLoading,
+              onFinished: () => _navigate(destination.requireValue),
+            ),
     );
   }
 }

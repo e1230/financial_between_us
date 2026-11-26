@@ -69,6 +69,24 @@ void main() {
     });
   });
 
+  test('update writes only the editable fields', () {
+    final data = UserProfileMapper.update(
+      displayName: 'Mauricio Beltrán',
+      photoUrl: null,
+      colorValue: 0xFF4FC3F7,
+    );
+    expect(data.keys.toSet(), {
+      'displayName',
+      'photoUrl',
+      'color',
+      'updatedAt',
+    });
+    expect(data['displayName'], 'Mauricio Beltrán');
+    expect(data['photoUrl'], isNull);
+    expect(data['color'], '#4FC3F7');
+    expect(data['updatedAt'], isA<FieldValue>());
+  });
+
   test('display name is optional and up to 40 characters', () {
     expect(ProfileValidators.displayName(''), isNull);
     expect(ProfileValidators.displayName('a' * 40), isNull);

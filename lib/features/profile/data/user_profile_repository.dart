@@ -39,6 +39,14 @@ abstract interface class UserProfileRepository {
     required String? photoUrl,
     required int colorValue,
   });
+
+  /// Saves the editable data of the profile: name, photo and color.
+  Future<void> updateProfile({
+    required String uid,
+    required String displayName,
+    required String? photoUrl,
+    required int colorValue,
+  });
 }
 
 class FirestoreUserProfileRepository implements UserProfileRepository {
@@ -97,6 +105,20 @@ class FirestoreUserProfileRepository implements UserProfileRepository {
     required int colorValue,
   }) => _user(uid).update(
     UserProfileMapper.completion(
+      displayName: displayName,
+      photoUrl: photoUrl,
+      colorValue: colorValue,
+    ),
+  );
+
+  @override
+  Future<void> updateProfile({
+    required String uid,
+    required String displayName,
+    required String? photoUrl,
+    required int colorValue,
+  }) => _user(uid).update(
+    UserProfileMapper.update(
       displayName: displayName,
       photoUrl: photoUrl,
       colorValue: colorValue,

@@ -32,6 +32,11 @@ abstract final class ProfileMetrics {
   /// Hue stops of the hue bar.
   static const int hueStops = 7;
 
+  // Read-only rows and the password row
+  static const double rowIconSize = 20;
+  static const double rowIconGap = 12;
+  static const double googleLogoSize = 20;
+
   // Skeleton
   static const double skeletonLineHeight = 16;
   static const double skeletonTitleWidth = 0.7;

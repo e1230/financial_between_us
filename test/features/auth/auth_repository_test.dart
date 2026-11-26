@@ -229,6 +229,54 @@ void main() {
     });
   });
 
+  group('changePassword', () {
+    late FakeUser user;
+
+    setUp(() => auth.currentUser = user = FakeUser());
+
+    test('re-authenticates and sets the new password', () async {
+      await repository.changePassword(
+        currentPassword: 'cuentasclaras',
+        newPassword: 'nuevaclave',
+      );
+      expect(user.reauthenticated, isTrue);
+      expect(user.password, 'nuevaclave');
+    });
+
+    test('a wrong current password fails as invalid credentials', () async {
+      await expectLater(
+        repository.changePassword(
+          currentPassword: 'otra-clave',
+          newPassword: 'nuevaclave',
+        ),
+        throwsA(isA<InvalidCredentials>()),
+      );
+      expect(user.password, 'cuentasclaras');
+    });
+
+    test('maps a weak password', () async {
+      user.updatePasswordError = FirebaseAuthException(code: 'weak-password');
+      await expectLater(
+        repository.changePassword(
+          currentPassword: 'cuentasclaras',
+          newPassword: 'nuevaclave',
+        ),
+        throwsA(isA<WeakPassword>()),
+      );
+    });
+
+    test('fails without a session', () async {
+      auth.currentUser = null;
+      await expectLater(
+        repository.changePassword(
+          currentPassword: 'cuentasclaras',
+          newPassword: 'nuevaclave',
+        ),
+        throwsA(isA<UnknownAuthFailure>()),
+      );
+    });
+  });
+
   test('signOut signs out of Firebase and Google', () async {
     await repository.signOut();
     expect(auth.signedOut, isTrue);

@@ -44,6 +44,14 @@ abstract interface class AuthRepository {
   /// find out which accounts exist: only network errors and throttling are.
   Future<void> sendPasswordReset(String email);
 
+  /// Changes the password of an email account. Firebase asks for a recent
+  /// sign-in, so the user is first re-authenticated with [currentPassword]
+  /// (a wrong one throws [InvalidCredentials]).
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  });
+
   /// Signs out of Firebase and Google.
   Future<void> signOut();
 }
@@ -192,6 +200,22 @@ class FirebaseAuthRepository implements AuthRepository {
       }
       // Unknown email and the like: behave as if it was sent.
     }
+  });
+
+  @override
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) => _guard(() async {
+    final user = _auth.currentUser;
+    final email = user?.email;
+    if (user == null || email == null) {
+      throw const UnknownAuthFailure('no-session');
+    }
+    await user.reauthenticateWithCredential(
+      EmailAuthProvider.credential(email: email, password: currentPassword),
+    );
+    await user.updatePassword(newPassword);
   });
 
   @override

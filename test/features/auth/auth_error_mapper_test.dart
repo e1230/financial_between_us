@@ -11,6 +11,7 @@ void main() {
       'wrong-password',
       'user-not-found',
       'invalid-email',
+      'requires-recent-login',
     ]) {
       expect(AuthErrorMapper.fromCode(code), isA<InvalidCredentials>());
     }

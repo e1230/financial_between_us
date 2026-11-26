@@ -14,12 +14,17 @@ import '../home_metrics.dart';
 /// Hero flight between both sizes the ring gap and the initial interpolate
 /// with it.
 class RingAvatar extends StatelessWidget {
-  const RingAvatar({super.key, required this.profile});
+  const RingAvatar({super.key, required this.profile, this.ring = 1});
 
   /// `null` while the profile loads.
   final UserProfile? profile;
 
-  /// Hero tag shared by the header and the menu.
+  /// How much of the ring shows, from 1 (ring and gap) to 0 (only the
+  /// photo, like the avatar of the profile tab). Used by the Hero flight
+  /// from the menu to the profile tab.
+  final double ring;
+
+  /// Hero tag shared by the header, the menu and the profile tab.
   static const String heroTag = 'fbu-avatar';
 
   /// Gap between ring and photo at 44 dp (3) and at 64 dp (4).
@@ -42,17 +47,21 @@ class RingAvatar extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = constraints.biggest.shortestSide;
-        final inset = HomeMetrics.headerAvatarRing + gapFor(size);
+        final visible = ring.clamp(0.0, 1.0);
+        final inset = (HomeMetrics.headerAvatarRing + gapFor(size)) * visible;
         return Container(
           width: size,
           height: size,
           padding: EdgeInsets.all(inset),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(
-              color: palette.userColor,
-              width: HomeMetrics.headerAvatarRing,
-            ),
+            // A zero-width border would still paint a hairline.
+            border: visible == 0
+                ? null
+                : Border.all(
+                    color: palette.userColor,
+                    width: HomeMetrics.headerAvatarRing * visible,
+                  ),
           ),
           child: UserAvatar(
             initial: profile?.initial ?? '',

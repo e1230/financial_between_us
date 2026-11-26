@@ -80,7 +80,6 @@ abstract final class HomeStrings {
 
   // Avatar menu
   static const String closeMenu = 'Cerrar menú';
-  static const String profileSettings = 'Configurar perfil';
   static const String menuGroups = 'Grupos';
   static String menuGroupsText(String? active, int others) {
     if (active == null) return 'Aún no tienes grupos';
