@@ -16,8 +16,14 @@ abstract class Group with _$Group {
     /// Join code, like `LIQ-7K4P` (see `GroupCode`).
     required String code,
 
-    /// Creator and admin of the group.
+    /// Main admin: the creator, or whoever inherited the group when the
+    /// previous one left. Always the first of [adminUids]; nobody can
+    /// remove them or take away their role.
     required String ownerUid,
+
+    /// Active members who administer the group, in the order they became
+    /// admins (the owner first).
+    @Default(<String>[]) List<String> adminUids,
 
     /// New members wait for the admin's approval.
     @Default(false) bool requiresApproval,
@@ -48,9 +54,29 @@ abstract class Group with _$Group {
   bool isPending(String uid) =>
       !isActiveMember(uid) && pendingUids.contains(uid);
 
-  // DECISIÓN: for now the only admin is the creator. Several admins will
-  // come with group management (roles in `groups/{gid}/members/{uid}`).
-  bool isAdmin(String uid) => ownerUid == uid;
+  /// Whether [uid] is the main admin.
+  bool isOwner(String uid) => ownerUid == uid;
+
+  /// Whether [uid] administers the group (the owner always does).
+  bool isAdmin(String uid) => isOwner(uid) || adminUids.contains(uid);
+
+  /// Admins approve and reject requests, remove plain members and promote
+  /// members to admin. Only the owner removes or demotes another admin.
+  bool canRemove(String adminUid, String memberUid) =>
+      isAdmin(adminUid) &&
+      memberUid != adminUid &&
+      !isOwner(memberUid) &&
+      isActiveMember(memberUid) &&
+      (!isAdmin(memberUid) || isOwner(adminUid));
+
+  /// Whether [adminUid] can make the active member [memberUid] an admin.
+  bool canPromote(String adminUid, String memberUid) =>
+      isAdmin(adminUid) && isActiveMember(memberUid) && !isAdmin(memberUid);
+
+  /// Whether [adminUid] can turn the admin [memberUid] back into a plain
+  /// member.
+  bool canDemote(String adminUid, String memberUid) =>
+      isOwner(adminUid) && !isOwner(memberUid) && adminUids.contains(memberUid);
 
   /// Two letters of the group mosaic ("FJ" for "Fútbol de los jueves").
   String get initials => GroupInitials.of(name);

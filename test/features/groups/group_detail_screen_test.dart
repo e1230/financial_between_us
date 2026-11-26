@@ -3,6 +3,7 @@ import 'package:financial_between_us/core/theme/app_theme.dart';
 import 'package:financial_between_us/core/widgets/fbu_pill_button.dart';
 import 'package:financial_between_us/features/auth/data/auth_providers.dart';
 import 'package:financial_between_us/features/auth/data/auth_repository.dart';
+import 'package:financial_between_us/features/auth/presentation/widgets/fbu_text_field.dart';
 import 'package:financial_between_us/features/balances/data/balances_providers.dart';
 import 'package:financial_between_us/features/balances/domain/debt.dart';
 import 'package:financial_between_us/features/groups/data/groups_providers.dart';
@@ -48,6 +49,7 @@ final _profiles = {
 
 Group _group({
   String owner = _uid,
+  List<String> admins = const [],
   List<String> members = const [_uid, 'ana', 'beto', 'carla'],
   List<String> pending = const [],
   bool requiresApproval = false,
@@ -57,6 +59,7 @@ Group _group({
   name: 'Fútbol',
   code: 'FUT-2345',
   ownerUid: owner,
+  adminUids: [owner, ...admins],
   memberUids: members,
   pendingUids: pending,
   requiresApproval: requiresApproval,
@@ -158,6 +161,16 @@ void main() {
 
   Finder confirm(String label) => find.widgetWithText(FbuPillButton, label);
 
+  Finder options(String name) =>
+      inRow(name, find.byTooltip('Opciones de $name'));
+
+  /// Opens the options of [name] and picks [option].
+  Future<void> choose(WidgetTester tester, String name, String option) async {
+    await tap(tester, options(name));
+    expect(find.text('¿Qué quieres hacer?'), findsOneWidget);
+    await tap(tester, confirm(option));
+  }
+
   testWidgets('opens from the group list', (tester) async {
     groups.groups.add(_group());
     await pumpDetail(tester, location: AppRoutes.groups);
@@ -196,7 +209,7 @@ void main() {
 
     expect(find.byType(MemberTile), findsNWidgets(4));
     expect(find.text('Juan Pérez (tú)'), findsOneWidget);
-    expect(find.text('@juan · Administrador'), findsOneWidget);
+    expect(find.text('@juan · Administrador principal'), findsOneWidget);
     expect(find.text('@ana · Miembro'), findsOneWidget);
     expect(
       inRow('Ana Gómez', find.text('Desde el 3 feb 2026')),
@@ -224,7 +237,7 @@ void main() {
     groups.groups.add(_group(owner: 'ana', pending: ['dani']));
     await pumpDetail(tester);
 
-    expect(find.byTooltip('Eliminar del grupo'), findsNothing);
+    expect(find.byIcon(Icons.more_vert), findsNothing);
     expect(find.text('SOLICITUDES PENDIENTES'), findsOneWidget);
     expect(find.text('Dani Mora'), findsOneWidget);
     expect(find.text('Aprobar'), findsNothing);
@@ -236,22 +249,19 @@ void main() {
     await pumpDetail(tester);
 
     expect(
-      inRow('Juan Pérez (tú)', find.byTooltip('Eliminar del grupo')),
+      inRow('Juan Pérez (tú)', find.byIcon(Icons.more_vert)),
       findsNothing,
     );
 
     // Carla is even with everybody: no warning.
-    await tap(
-      tester,
-      inRow('Carla Díaz', find.byTooltip('Eliminar del grupo')),
-    );
+    await choose(tester, 'Carla Díaz', 'Eliminar del grupo');
     expect(find.text('¿Eliminar a Carla Díaz del grupo?'), findsOneWidget);
     expect(find.textContaining('saldos pendientes'), findsNothing);
     await tap(tester, find.text('Cancelar'));
     expect(groups.calls, isEmpty);
 
     // Ana owes money: warned, but allowed.
-    await tap(tester, inRow('Ana Gómez', find.byTooltip('Eliminar del grupo')));
+    await choose(tester, 'Ana Gómez', 'Eliminar del grupo');
     expect(find.textContaining('saldos pendientes'), findsOneWidget);
     await tap(tester, confirm('Eliminar del grupo'));
     expect(groups.calls, ['remove:ana']);
@@ -265,14 +275,179 @@ void main() {
     groups.groups.add(_group());
     await pumpDetail(tester);
 
+    await choose(tester, 'Carla Díaz', 'Eliminar del grupo');
     groups.failure = const GroupNetworkFailure();
-    await tap(
-      tester,
-      inRow('Carla Díaz', find.byTooltip('Eliminar del grupo')),
-    );
     await tap(tester, confirm('Eliminar del grupo'));
     expect(find.text('Sin conexión. Revisa tu internet.'), findsOneWidget);
     expect(find.text('¿Eliminar a Carla Díaz del grupo?'), findsOneWidget);
+  });
+
+  testWidgets('the admin promotes a member after confirming', (tester) async {
+    groups.groups.add(_group());
+    await pumpDetail(tester);
+
+    await choose(tester, 'Beto Ruiz', 'Hacer administrador');
+    expect(find.text('¿Hacer administrador a Beto Ruiz?'), findsOneWidget);
+    await tap(tester, find.text('Cancelar'));
+    expect(groups.calls, isEmpty);
+
+    await choose(tester, 'Beto Ruiz', 'Hacer administrador');
+    await tap(
+      tester,
+      find.widgetWithText(FbuPillButton, 'Hacer administrador'),
+    );
+    expect(groups.calls, ['promote:beto']);
+    expect(find.text('@beto · Administrador'), findsOneWidget);
+    // Admins are listed right after the owner.
+    expect(
+      tester.getTopLeft(row('Beto Ruiz')).dy,
+      lessThan(tester.getTopLeft(row('Ana Gómez')).dy),
+    );
+  });
+
+  testWidgets('the owner demotes another admin', (tester) async {
+    groups.groups.add(_group(admins: ['ana']));
+    await pumpDetail(tester);
+
+    expect(find.text('@ana · Administrador'), findsOneWidget);
+    await tap(tester, options('Ana Gómez'));
+    // An admin cannot be promoted again.
+    expect(confirm('Hacer administrador'), findsNothing);
+    await tap(tester, confirm('Quitar como administrador'));
+    expect(
+      find.text('¿Quitarle la administración a Ana Gómez?'),
+      findsOneWidget,
+    );
+    await tap(tester, confirm('Quitar como administrador'));
+    expect(groups.calls, ['demote:ana']);
+    expect(find.text('@ana · Miembro'), findsOneWidget);
+  });
+
+  testWidgets('another admin manages plain members only', (tester) async {
+    groups.groups.add(
+      _group(owner: 'ana', admins: [_uid, 'beto'], pending: ['dani']),
+    );
+    await pumpDetail(tester);
+
+    expect(find.text('Administras este grupo'), findsOneWidget);
+    expect(find.text('@ana · Administrador principal'), findsOneWidget);
+    // Neither the owner nor another admin can be touched.
+    expect(options('Ana Gómez'), findsNothing);
+    expect(options('Beto Ruiz'), findsNothing);
+    // Requests can be answered.
+    expect(find.bySemanticsLabel('Aprobar a Dani Mora'), findsOneWidget);
+
+    await tap(tester, options('Carla Díaz'));
+    expect(confirm('Hacer administrador'), findsOneWidget);
+    expect(confirm('Quitar como administrador'), findsNothing);
+    expect(confirm('Eliminar del grupo'), findsOneWidget);
+    await tap(tester, confirm('Hacer administrador'));
+    await tap(tester, confirm('Hacer administrador'));
+    expect(groups.calls, ['promote:carla']);
+  });
+
+  testWidgets('a member sees how many admins the group has', (tester) async {
+    groups.groups.add(_group(owner: 'ana', admins: ['beto', 'carla']));
+    await pumpDetail(tester);
+
+    expect(find.text('Administran @ana y 2 más'), findsOneWidget);
+  });
+
+  group('editing the group', () {
+    Finder field(String label) => find.widgetWithText(FbuTextField, label);
+    Finder save() => confirm('Guardar cambios');
+
+    testWidgets('only admins see "Editar grupo"', (tester) async {
+      groups.groups.add(_group(owner: 'ana'));
+      await pumpDetail(tester);
+      expect(find.byTooltip('Editar grupo'), findsNothing);
+    });
+
+    testWidgets('another admin renames the group and asks for approval', (
+      tester,
+    ) async {
+      groups.groups.add(_group(owner: 'ana', admins: [_uid]));
+      await pumpDetail(tester);
+
+      await tap(tester, find.byTooltip('Editar grupo'));
+      expect(
+        find.text('Los cambios aplican para todos los miembros.'),
+        findsOneWidget,
+      );
+      // Nothing changed yet.
+      expect(tester.widget<FbuPillButton>(save()).onPressed, isNull);
+
+      await tester.enterText(field('Nombre del grupo'), 'ab');
+      await tester.pump();
+      await tap(tester, save());
+      expect(find.text('Usa al menos 3 caracteres.'), findsOneWidget);
+      expect(groups.calls, isEmpty);
+
+      await tester.enterText(field('Nombre del grupo'), 'Fútbol 5');
+      await tap(tester, find.text('Aprobar nuevos miembros'));
+      await tap(tester, save());
+      expect(groups.calls, ['update:g1']);
+      expect(find.text('Editar grupo', skipOffstage: false), findsNothing);
+      expect(find.text('Fútbol 5'), findsOneWidget);
+      expect(find.text('Requiere aprobación'), findsOneWidget);
+    });
+
+    testWidgets('adding a password requires typing one', (tester) async {
+      groups.groups.add(_group());
+      await pumpDetail(tester);
+
+      await tap(tester, find.byTooltip('Editar grupo'));
+      expect(field('Contraseña'), findsNothing);
+      await tap(tester, find.text('Pedir contraseña'));
+      await tap(tester, save());
+      expect(find.text('Este campo es obligatorio.'), findsOneWidget);
+
+      await tester.enterText(field('Contraseña'), 'clave');
+      await tap(tester, save());
+      expect(groups.passwords['FUT-2345'], 'clave');
+      expect(find.text('Con contraseña'), findsOneWidget);
+    });
+
+    testWidgets('the password can be changed or removed', (tester) async {
+      groups
+        ..groups.add(_group(hasPassword: true))
+        ..passwords['FUT-2345'] = 'vieja';
+      await pumpDetail(tester);
+
+      await tap(tester, find.byTooltip('Editar grupo'));
+      // An empty field keeps the current one.
+      expect(find.text('Vacía para mantener la actual'), findsOneWidget);
+      await tester.enterText(field('Nueva contraseña'), 'nueva');
+      await tester.pump();
+      await tap(tester, save());
+      expect(groups.passwords['FUT-2345'], 'nueva');
+
+      await tap(tester, find.byTooltip('Editar grupo'));
+      await tap(tester, find.text('Pedir contraseña'));
+      expect(field('Nueva contraseña'), findsNothing);
+      await tap(tester, save());
+      expect(groups.passwords, isEmpty);
+      expect(find.text('Con contraseña'), findsNothing);
+    });
+
+    testWidgets('a failed save keeps the popup with the error', (tester) async {
+      groups.groups.add(_group());
+      await pumpDetail(tester);
+
+      await tap(tester, find.byTooltip('Editar grupo'));
+      await tap(tester, find.text('Aprobar nuevos miembros'));
+      groups.failure = const GroupNetworkFailure();
+      await tap(tester, save());
+      expect(find.text('Sin conexión. Revisa tu internet.'), findsOneWidget);
+      expect(save(), findsOneWidget);
+    });
+
+    testWidgets('no overflow at 130 % text on 360×640', (tester) async {
+      groups.groups.add(_group(hasPassword: true));
+      await pumpDetail(tester, size: const Size(360, 640), textScale: 1.3);
+      await tap(tester, find.byTooltip('Editar grupo'));
+      expect(tester.takeException(), isNull);
+    });
   });
 
   testWidgets('the admin approves and rejects requests', (tester) async {

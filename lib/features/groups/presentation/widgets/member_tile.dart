@@ -12,26 +12,32 @@ import '../member_dates.dart';
 import 'member_avatar.dart';
 
 /// An active member: avatar, name, nickname and role, since when, and the
-/// user's balance with them. The admin sees a remove button on the others.
+/// user's balance with them. Admins see an options button on the members
+/// they can manage.
 class MemberTile extends ConsumerWidget {
   const MemberTile({
     super.key,
     required this.member,
     required this.isMe,
     required this.balance,
-    this.onRemove,
+    this.isOwner = false,
+    this.onOptions,
   });
 
   final GroupMember member;
   final bool isMe;
+
+  /// The main admin of the group.
+  final bool isOwner;
 
   /// The user's balance with this member (see `balancesWith`): positive
   /// "Te debe", negative "Debes", zero "Están a mano". `null` hides it
   /// (own row, or while balances load).
   final int? balance;
 
-  /// Called with the member's visible name; `null` hides the button.
-  final ValueChanged<String>? onRemove;
+  /// Opens the admin options, with the member's visible name; `null` hides
+  /// the button.
+  final ValueChanged<String>? onOptions;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -39,11 +45,13 @@ class MemberTile extends ConsumerWidget {
     final styles = HomeTextStyles.of(context);
     final profile = ref.watch(userProfileProvider(member.uid)).value;
     final name = profile?.displayName ?? '';
-    final role = member.role == MemberRole.admin
+    final role = isOwner
+        ? GroupsStrings.roleOwner
+        : member.role == MemberRole.admin
         ? GroupsStrings.roleAdmin
         : GroupsStrings.roleMember;
     final joinedAt = member.joinedAt;
-    final onRemove = this.onRemove;
+    final onOptions = this.onOptions;
 
     return ConstrainedBox(
       constraints: const BoxConstraints(
@@ -97,14 +105,14 @@ class MemberTile extends ConsumerWidget {
                 child: BalanceLabel(balance: balance),
               ),
             ],
-            if (onRemove != null)
+            if (onOptions != null)
               IconButton(
-                onPressed: () => onRemove(name),
-                tooltip: GroupsStrings.removeMember,
+                onPressed: () => onOptions(name),
+                tooltip: GroupsStrings.memberOptions(name),
                 icon: Icon(
-                  Icons.person_remove_outlined,
+                  Icons.more_vert,
                   size: GroupsMetrics.actionIconSize,
-                  color: tokens.negative,
+                  color: tokens.textSecondary,
                 ),
               ),
           ],

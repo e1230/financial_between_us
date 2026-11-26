@@ -13,7 +13,6 @@ import '../../../groups/domain/group_code_lookup.dart';
 import '../../../groups/domain/group_failure.dart';
 import '../../../groups/domain/group_validators.dart';
 import '../home_strings.dart';
-import '../home_text_styles.dart';
 import 'dialog_parts.dart';
 import 'fbu_switch.dart';
 import 'group_created_view.dart';
@@ -111,7 +110,6 @@ class _CreateGroupDialogState extends ConsumerState<CreateGroupDialog> {
 
   Widget _form(BuildContext context) {
     final tokens = context.tokens;
-    final styles = HomeTextStyles.of(context);
     final nameError = _submitted ? _nameError : null;
     final passwordError = _submitted ? _passwordError : null;
     final failure = _failure;
@@ -161,40 +159,13 @@ class _CreateGroupDialogState extends ConsumerState<CreateGroupDialog> {
           onSubmitted: (_) => _create(),
         ),
         SizedBox(height: tokens.space2),
-        MergeSemantics(
-          child: InkWell(
-            onTap: _busy
-                ? null
-                : () => setState(() => _requiresApproval = !_requiresApproval),
-            borderRadius: BorderRadius.circular(tokens.radiusCard),
-            child: Padding(
-              padding: EdgeInsets.symmetric(vertical: tokens.space1),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          HomeStrings.approveMembers,
-                          style: styles.cardTitle,
-                        ),
-                        Text(
-                          HomeStrings.approveMembersText,
-                          style: styles.dialogSubtitle,
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(width: tokens.space2),
-                  Semantics(
-                    toggled: _requiresApproval,
-                    child: FbuSwitch(value: _requiresApproval),
-                  ),
-                ],
-              ),
-            ),
-          ),
+        FbuSwitchRow(
+          title: HomeStrings.approveMembers,
+          text: HomeStrings.approveMembersText,
+          value: _requiresApproval,
+          onChanged: _busy
+              ? null
+              : (value) => setState(() => _requiresApproval = value),
         ),
         if (failure != null) ...[
           SizedBox(height: tokens.space2),

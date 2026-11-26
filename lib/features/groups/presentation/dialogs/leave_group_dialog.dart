@@ -85,6 +85,7 @@ class _LeaveGroupDialogState extends ConsumerState<LeaveGroupDialog> {
         : GroupsStrings.leaveTitle(name);
     final text = switch (plan) {
       CancelRequest() => GroupsStrings.cancelRequestText,
+      LeaveAndTransfer(wasAdmin: true) => GroupsStrings.leaveToAdminText,
       LeaveAndTransfer() => GroupsStrings.leaveTransferText,
       LeaveAndArchive() => GroupsStrings.leaveArchiveText,
       LeaveAsMember() || null => GroupsStrings.leaveMemberText,

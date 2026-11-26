@@ -36,13 +36,15 @@ abstract class GroupMember with _$GroupMember {
   }) = _GroupMember;
 }
 
-/// Order of the member list: the [ownerUid] first, then by [joinedAt]
-/// (oldest first, unknown dates last).
+/// Order of the member list: the [ownerUid] first, then the other admins,
+/// then everybody else; each part by [joinedAt] (oldest first, unknown
+/// dates last).
 List<GroupMember> sortMembers(Iterable<GroupMember> members, String ownerUid) {
   final list = members.toList();
   list.sort((a, b) {
     if (a.uid == ownerUid) return -1;
     if (b.uid == ownerUid) return 1;
+    if (a.role != b.role) return a.role == MemberRole.admin ? -1 : 1;
     final da = a.joinedAt;
     final db = b.joinedAt;
     if (da == null && db == null) return a.uid.compareTo(b.uid);

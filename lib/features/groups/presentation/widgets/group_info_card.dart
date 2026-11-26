@@ -47,7 +47,12 @@ class GroupInfoCard extends ConsumerWidget {
           .watch(userProfileProvider(group.ownerUid))
           .value
           ?.nickname;
-      admin = nickname == null ? '' : GroupsStrings.adminBy(nickname);
+      final others = group.adminUids.where((u) => u != group.ownerUid).length;
+      admin = nickname == null
+          ? ''
+          : others == 0
+          ? GroupsStrings.adminBy(nickname)
+          : GroupsStrings.adminByMany(nickname, others);
     }
     final tags = [
       if (group.requiresApproval) GroupsStrings.requiresApproval,

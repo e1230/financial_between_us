@@ -158,7 +158,9 @@ abstract final class HomeStrings {
     GroupCodeNotFound() => 'No encontramos un grupo con ese código.',
     AlreadyMember() => 'Ya estás en este grupo.',
     NotAMember() => 'Ya no haces parte de este grupo.',
-    NotGroupAdmin() => 'Solo el administrador del grupo puede hacer eso.',
+    NotGroupAdmin() => 'Solo un administrador del grupo puede hacer eso.',
+    NotGroupOwner() =>
+      'Solo el administrador principal del grupo puede hacer eso.',
     WrongGroupPassword() => 'La contraseña no coincide.',
     CodeGenerationExhausted() =>
       'No pudimos generar un código. Inténtalo de nuevo.',

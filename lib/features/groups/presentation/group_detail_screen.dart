@@ -14,8 +14,10 @@ import '../data/groups_providers.dart';
 import '../domain/group.dart';
 import '../domain/group_failure.dart';
 import '../domain/group_member.dart';
+import 'dialogs/edit_group_dialog.dart';
 import 'dialogs/leave_group_dialog.dart';
 import 'dialogs/member_action_dialog.dart';
+import 'dialogs/member_options_dialog.dart';
 import 'groups_metrics.dart';
 import 'groups_strings.dart';
 import 'widgets/group_info_card.dart';
@@ -26,7 +28,9 @@ import 'widgets/pending_member_tile.dart';
 
 /// Detail of a group, opened from "Grupos": a summary, the members (role,
 /// since when, and the user's balance with each one) and the pending
-/// requests. The admin can remove members and approve or reject requests.
+/// requests. Admins approve or reject requests, remove members and promote
+/// them to admin, and edit the group (name, approval and password); the
+/// main admin also removes or demotes other admins.
 class GroupDetailScreen extends ConsumerWidget {
   const GroupDetailScreen({super.key, required this.groupId});
 
@@ -70,21 +74,34 @@ class GroupDetailScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: Padding(
-                padding: const EdgeInsetsDirectional.only(
-                  start: GroupsMetrics.backInset,
-                ),
-                child: IconButton(
-                  onPressed: () => Navigator.of(context).maybePop(),
-                  tooltip: GroupsStrings.back,
-                  icon: Icon(
-                    Icons.arrow_back,
-                    size: GroupsMetrics.backIconSize,
-                    color: tokens.textPrimary,
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: GroupsMetrics.backInset,
+              ),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    tooltip: GroupsStrings.back,
+                    icon: Icon(
+                      Icons.arrow_back,
+                      size: GroupsMetrics.backIconSize,
+                      color: tokens.textPrimary,
+                    ),
                   ),
-                ),
+                  const Spacer(),
+                  if (group != null && uid != null && group.isAdmin(uid))
+                    IconButton(
+                      onPressed: () =>
+                          showEditGroupDialog(context, group: group, uid: uid),
+                      tooltip: GroupsStrings.editGroup,
+                      icon: Icon(
+                        Icons.edit_outlined,
+                        size: GroupsMetrics.backIconSize,
+                        color: tokens.textPrimary,
+                      ),
+                    ),
+                ],
               ),
             ),
             Padding(
@@ -183,6 +200,53 @@ class _GroupContentState extends ConsumerState<_GroupContent> {
     );
   }
 
+  Future<void> _promote(String memberUid, String name) =>
+      showPromoteMemberDialog(
+        context,
+        name: name,
+        onConfirm: () => ref
+            .read(groupsRepositoryProvider)
+            .promoteMember(
+              groupId: _group.id,
+              adminUid: _uid,
+              memberUid: memberUid,
+            ),
+      );
+
+  Future<void> _demote(String memberUid, String name) => showDemoteMemberDialog(
+    context,
+    name: name,
+    onConfirm: () => ref
+        .read(groupsRepositoryProvider)
+        .demoteMember(groupId: _group.id, adminUid: _uid, memberUid: memberUid),
+  );
+
+  /// What the user can do with [memberUid], in the order they are shown.
+  List<MemberOption> _optionsFor(String memberUid) => [
+    if (_group.canPromote(_uid, memberUid)) MemberOption.promote,
+    if (_group.canDemote(_uid, memberUid)) MemberOption.demote,
+    if (_group.canRemove(_uid, memberUid)) MemberOption.remove,
+  ];
+
+  Future<void> _openOptions(String memberUid, String name) async {
+    final option = await showMemberOptionsDialog(
+      context,
+      name: name,
+      options: _optionsFor(memberUid),
+    );
+    if (!mounted) return;
+    switch (option) {
+      case MemberOption.promote:
+        await _promote(memberUid, name);
+      case MemberOption.demote:
+        await _demote(memberUid, name);
+      case MemberOption.remove:
+        await _remove(memberUid, name);
+      case null:
+        break;
+    }
+  }
+
   Future<void> _leave() async {
     final left = await showLeaveGroupDialog(context, group: _group, uid: _uid);
     if (left && mounted) Navigator.of(context).maybePop();
@@ -222,9 +286,10 @@ class _GroupContentState extends ConsumerState<_GroupContent> {
             balance: member.uid == _uid || balances == null
                 ? null
                 : balances[member.uid] ?? 0,
-            onRemove: isAdmin && member.uid != _uid
-                ? (name) => _remove(member.uid, name)
-                : null,
+            isOwner: _group.isOwner(member.uid),
+            onOptions: _optionsFor(member.uid).isEmpty
+                ? null
+                : (name) => _openOptions(member.uid, name),
           ),
         if (pending.isNotEmpty) ...[
           section(GroupsStrings.pendingTitle),

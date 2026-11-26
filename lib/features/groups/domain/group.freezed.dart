@@ -16,8 +16,12 @@ T _$identity<T>(T value) => value;
 mixin _$Group {
 
  String get id; String get name;/// Join code, like `LIQ-7K4P` (see `GroupCode`).
- String get code;/// Creator and admin of the group.
- String get ownerUid;/// New members wait for the admin's approval.
+ String get code;/// Main admin: the creator, or whoever inherited the group when the
+/// previous one left. Always the first of [adminUids]; nobody can
+/// remove them or take away their role.
+ String get ownerUid;/// Active members who administer the group, in the order they became
+/// admins (the owner first).
+ List<String> get adminUids;/// New members wait for the admin's approval.
  bool get requiresApproval;/// A password is asked for when joining.
  bool get hasPassword;/// Active members.
  List<String> get memberUids;/// Members waiting for approval.
@@ -35,20 +39,20 @@ $GroupCopyWith<Group> get copyWith => _$GroupCopyWithImpl<Group>(this as Group, 
 @override
 bool operator ==(Object other) {
   final _this = this as Group;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Group&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.name, _this.name) || other.name == _this.name)&&(identical(other.code, _this.code) || other.code == _this.code)&&(identical(other.ownerUid, _this.ownerUid) || other.ownerUid == _this.ownerUid)&&(identical(other.requiresApproval, _this.requiresApproval) || other.requiresApproval == _this.requiresApproval)&&(identical(other.hasPassword, _this.hasPassword) || other.hasPassword == _this.hasPassword)&&const DeepCollectionEquality().equals(other.memberUids, _this.memberUids)&&const DeepCollectionEquality().equals(other.pendingUids, _this.pendingUids)&&(identical(other.createdAt, _this.createdAt) || other.createdAt == _this.createdAt)&&(identical(other.deletedAt, _this.deletedAt) || other.deletedAt == _this.deletedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Group&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.name, _this.name) || other.name == _this.name)&&(identical(other.code, _this.code) || other.code == _this.code)&&(identical(other.ownerUid, _this.ownerUid) || other.ownerUid == _this.ownerUid)&&const DeepCollectionEquality().equals(other.adminUids, _this.adminUids)&&(identical(other.requiresApproval, _this.requiresApproval) || other.requiresApproval == _this.requiresApproval)&&(identical(other.hasPassword, _this.hasPassword) || other.hasPassword == _this.hasPassword)&&const DeepCollectionEquality().equals(other.memberUids, _this.memberUids)&&const DeepCollectionEquality().equals(other.pendingUids, _this.pendingUids)&&(identical(other.createdAt, _this.createdAt) || other.createdAt == _this.createdAt)&&(identical(other.deletedAt, _this.deletedAt) || other.deletedAt == _this.deletedAt));
 }
 
 
 @override
 int get hashCode {
   final _this = this as Group;
-  return Object.hash(runtimeType,_this.id,_this.name,_this.code,_this.ownerUid,_this.requiresApproval,_this.hasPassword,const DeepCollectionEquality().hash(_this.memberUids),const DeepCollectionEquality().hash(_this.pendingUids),_this.createdAt,_this.deletedAt);
+  return Object.hash(runtimeType,_this.id,_this.name,_this.code,_this.ownerUid,const DeepCollectionEquality().hash(_this.adminUids),_this.requiresApproval,_this.hasPassword,const DeepCollectionEquality().hash(_this.memberUids),const DeepCollectionEquality().hash(_this.pendingUids),_this.createdAt,_this.deletedAt);
 }
 
 @override
 String toString() {
   final _this = this as Group;
-  return 'Group(id: ${_this.id}, name: ${_this.name}, code: ${_this.code}, ownerUid: ${_this.ownerUid}, requiresApproval: ${_this.requiresApproval}, hasPassword: ${_this.hasPassword}, memberUids: ${_this.memberUids}, pendingUids: ${_this.pendingUids}, createdAt: ${_this.createdAt}, deletedAt: ${_this.deletedAt})';
+  return 'Group(id: ${_this.id}, name: ${_this.name}, code: ${_this.code}, ownerUid: ${_this.ownerUid}, adminUids: ${_this.adminUids}, requiresApproval: ${_this.requiresApproval}, hasPassword: ${_this.hasPassword}, memberUids: ${_this.memberUids}, pendingUids: ${_this.pendingUids}, createdAt: ${_this.createdAt}, deletedAt: ${_this.deletedAt})';
 }
 
 
@@ -59,7 +63,7 @@ abstract mixin class $GroupCopyWith<$Res>  {
   factory $GroupCopyWith(Group value, $Res Function(Group) _then) = _$GroupCopyWithImpl;
 @useResult
 $Res call({
- String id, String name, String code, String ownerUid, bool requiresApproval, bool hasPassword, List<String> memberUids, List<String> pendingUids, DateTime? createdAt, DateTime? deletedAt
+ String id, String name, String code, String ownerUid, List<String> adminUids, bool requiresApproval, bool hasPassword, List<String> memberUids, List<String> pendingUids, DateTime? createdAt, DateTime? deletedAt
 });
 
 
@@ -76,13 +80,14 @@ class _$GroupCopyWithImpl<$Res>
 
 /// Create a copy of Group
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? code = null,Object? ownerUid = null,Object? requiresApproval = null,Object? hasPassword = null,Object? memberUids = null,Object? pendingUids = null,Object? createdAt = freezed,Object? deletedAt = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? code = null,Object? ownerUid = null,Object? adminUids = null,Object? requiresApproval = null,Object? hasPassword = null,Object? memberUids = null,Object? pendingUids = null,Object? createdAt = freezed,Object? deletedAt = freezed,}) {
   return _then(Group(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,code: null == code ? _self.code : code // ignore: cast_nullable_to_non_nullable
 as String,ownerUid: null == ownerUid ? _self.ownerUid : ownerUid // ignore: cast_nullable_to_non_nullable
-as String,requiresApproval: null == requiresApproval ? _self.requiresApproval : requiresApproval // ignore: cast_nullable_to_non_nullable
+as String,adminUids: null == adminUids ? _self.adminUids : adminUids // ignore: cast_nullable_to_non_nullable
+as List<String>,requiresApproval: null == requiresApproval ? _self.requiresApproval : requiresApproval // ignore: cast_nullable_to_non_nullable
 as bool,hasPassword: null == hasPassword ? _self.hasPassword : hasPassword // ignore: cast_nullable_to_non_nullable
 as bool,memberUids: null == memberUids ? _self.memberUids : memberUids // ignore: cast_nullable_to_non_nullable
 as List<String>,pendingUids: null == pendingUids ? _self.pendingUids : pendingUids // ignore: cast_nullable_to_non_nullable
@@ -173,10 +178,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String code,  String ownerUid,  bool requiresApproval,  bool hasPassword,  List<String> memberUids,  List<String> pendingUids,  DateTime? createdAt,  DateTime? deletedAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String code,  String ownerUid,  List<String> adminUids,  bool requiresApproval,  bool hasPassword,  List<String> memberUids,  List<String> pendingUids,  DateTime? createdAt,  DateTime? deletedAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Group() when $default != null:
-return $default(_that.id,_that.name,_that.code,_that.ownerUid,_that.requiresApproval,_that.hasPassword,_that.memberUids,_that.pendingUids,_that.createdAt,_that.deletedAt);case _:
+return $default(_that.id,_that.name,_that.code,_that.ownerUid,_that.adminUids,_that.requiresApproval,_that.hasPassword,_that.memberUids,_that.pendingUids,_that.createdAt,_that.deletedAt);case _:
   return orElse();
 
 }
@@ -194,10 +199,10 @@ return $default(_that.id,_that.name,_that.code,_that.ownerUid,_that.requiresAppr
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String code,  String ownerUid,  bool requiresApproval,  bool hasPassword,  List<String> memberUids,  List<String> pendingUids,  DateTime? createdAt,  DateTime? deletedAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String code,  String ownerUid,  List<String> adminUids,  bool requiresApproval,  bool hasPassword,  List<String> memberUids,  List<String> pendingUids,  DateTime? createdAt,  DateTime? deletedAt)  $default,) {final _that = this;
 switch (_that) {
 case _Group():
-return $default(_that.id,_that.name,_that.code,_that.ownerUid,_that.requiresApproval,_that.hasPassword,_that.memberUids,_that.pendingUids,_that.createdAt,_that.deletedAt);case _:
+return $default(_that.id,_that.name,_that.code,_that.ownerUid,_that.adminUids,_that.requiresApproval,_that.hasPassword,_that.memberUids,_that.pendingUids,_that.createdAt,_that.deletedAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -214,10 +219,10 @@ return $default(_that.id,_that.name,_that.code,_that.ownerUid,_that.requiresAppr
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String code,  String ownerUid,  bool requiresApproval,  bool hasPassword,  List<String> memberUids,  List<String> pendingUids,  DateTime? createdAt,  DateTime? deletedAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String code,  String ownerUid,  List<String> adminUids,  bool requiresApproval,  bool hasPassword,  List<String> memberUids,  List<String> pendingUids,  DateTime? createdAt,  DateTime? deletedAt)?  $default,) {final _that = this;
 switch (_that) {
 case _Group() when $default != null:
-return $default(_that.id,_that.name,_that.code,_that.ownerUid,_that.requiresApproval,_that.hasPassword,_that.memberUids,_that.pendingUids,_that.createdAt,_that.deletedAt);case _:
+return $default(_that.id,_that.name,_that.code,_that.ownerUid,_that.adminUids,_that.requiresApproval,_that.hasPassword,_that.memberUids,_that.pendingUids,_that.createdAt,_that.deletedAt);case _:
   return null;
 
 }
@@ -229,15 +234,28 @@ return $default(_that.id,_that.name,_that.code,_that.ownerUid,_that.requiresAppr
 
 
 class _Group extends Group {
-  const _Group({required this.id, required this.name, required this.code, required this.ownerUid, this.requiresApproval = false, this.hasPassword = false,  List<String> memberUids = const <String>[],  List<String> pendingUids = const <String>[], this.createdAt, this.deletedAt}): _memberUids = memberUids,_pendingUids = pendingUids,super._();
+  const _Group({required this.id, required this.name, required this.code, required this.ownerUid,  List<String> adminUids = const <String>[], this.requiresApproval = false, this.hasPassword = false,  List<String> memberUids = const <String>[],  List<String> pendingUids = const <String>[], this.createdAt, this.deletedAt}): _adminUids = adminUids,_memberUids = memberUids,_pendingUids = pendingUids,super._();
   
 
 @override final  String id;
 @override final  String name;
 /// Join code, like `LIQ-7K4P` (see `GroupCode`).
 @override final  String code;
-/// Creator and admin of the group.
+/// Main admin: the creator, or whoever inherited the group when the
+/// previous one left. Always the first of [adminUids]; nobody can
+/// remove them or take away their role.
 @override final  String ownerUid;
+/// Active members who administer the group, in the order they became
+/// admins (the owner first).
+ final  List<String> _adminUids;
+/// Active members who administer the group, in the order they became
+/// admins (the owner first).
+@override@JsonKey() List<String> get adminUids {
+  if (_adminUids is EqualUnmodifiableListView) return _adminUids;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_adminUids);
+}
+
 /// New members wait for the admin's approval.
 @override@JsonKey() final  bool requiresApproval;
 /// A password is asked for when joining.
@@ -275,18 +293,18 @@ _$GroupCopyWith<_Group> get copyWith => __$GroupCopyWithImpl<_Group>(this, _$ide
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _Group&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.code, code) || other.code == code)&&(identical(other.ownerUid, ownerUid) || other.ownerUid == ownerUid)&&(identical(other.requiresApproval, requiresApproval) || other.requiresApproval == requiresApproval)&&(identical(other.hasPassword, hasPassword) || other.hasPassword == hasPassword)&&const DeepCollectionEquality().equals(other.memberUids, _memberUids)&&const DeepCollectionEquality().equals(other.pendingUids, _pendingUids)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.deletedAt, deletedAt) || other.deletedAt == deletedAt));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _Group&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.code, code) || other.code == code)&&(identical(other.ownerUid, ownerUid) || other.ownerUid == ownerUid)&&const DeepCollectionEquality().equals(other.adminUids, _adminUids)&&(identical(other.requiresApproval, requiresApproval) || other.requiresApproval == requiresApproval)&&(identical(other.hasPassword, hasPassword) || other.hasPassword == hasPassword)&&const DeepCollectionEquality().equals(other.memberUids, _memberUids)&&const DeepCollectionEquality().equals(other.pendingUids, _pendingUids)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.deletedAt, deletedAt) || other.deletedAt == deletedAt));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,id,name,code,ownerUid,requiresApproval,hasPassword,const DeepCollectionEquality().hash(_memberUids),const DeepCollectionEquality().hash(_pendingUids),createdAt,deletedAt);
+    return Object.hash(runtimeType,id,name,code,ownerUid,const DeepCollectionEquality().hash(_adminUids),requiresApproval,hasPassword,const DeepCollectionEquality().hash(_memberUids),const DeepCollectionEquality().hash(_pendingUids),createdAt,deletedAt);
 }
 
 @override
 String toString() {
-    return 'Group(id: $id, name: $name, code: $code, ownerUid: $ownerUid, requiresApproval: $requiresApproval, hasPassword: $hasPassword, memberUids: $memberUids, pendingUids: $pendingUids, createdAt: $createdAt, deletedAt: $deletedAt)';
+    return 'Group(id: $id, name: $name, code: $code, ownerUid: $ownerUid, adminUids: $adminUids, requiresApproval: $requiresApproval, hasPassword: $hasPassword, memberUids: $memberUids, pendingUids: $pendingUids, createdAt: $createdAt, deletedAt: $deletedAt)';
 }
 
 
@@ -297,7 +315,7 @@ abstract mixin class _$GroupCopyWith<$Res> implements $GroupCopyWith<$Res> {
   factory _$GroupCopyWith(_Group value, $Res Function(_Group) _then) = __$GroupCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String name, String code, String ownerUid, bool requiresApproval, bool hasPassword, List<String> memberUids, List<String> pendingUids, DateTime? createdAt, DateTime? deletedAt
+ String id, String name, String code, String ownerUid, List<String> adminUids, bool requiresApproval, bool hasPassword, List<String> memberUids, List<String> pendingUids, DateTime? createdAt, DateTime? deletedAt
 });
 
 
@@ -314,13 +332,14 @@ class __$GroupCopyWithImpl<$Res>
 
 /// Create a copy of Group
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? code = null,Object? ownerUid = null,Object? requiresApproval = null,Object? hasPassword = null,Object? memberUids = null,Object? pendingUids = null,Object? createdAt = freezed,Object? deletedAt = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? code = null,Object? ownerUid = null,Object? adminUids = null,Object? requiresApproval = null,Object? hasPassword = null,Object? memberUids = null,Object? pendingUids = null,Object? createdAt = freezed,Object? deletedAt = freezed,}) {
   return _then(_Group(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,code: null == code ? _self.code : code // ignore: cast_nullable_to_non_nullable
 as String,ownerUid: null == ownerUid ? _self.ownerUid : ownerUid // ignore: cast_nullable_to_non_nullable
-as String,requiresApproval: null == requiresApproval ? _self.requiresApproval : requiresApproval // ignore: cast_nullable_to_non_nullable
+as String,adminUids: null == adminUids ? _self._adminUids : adminUids // ignore: cast_nullable_to_non_nullable
+as List<String>,requiresApproval: null == requiresApproval ? _self.requiresApproval : requiresApproval // ignore: cast_nullable_to_non_nullable
 as bool,hasPassword: null == hasPassword ? _self.hasPassword : hasPassword // ignore: cast_nullable_to_non_nullable
 as bool,memberUids: null == memberUids ? _self._memberUids : memberUids // ignore: cast_nullable_to_non_nullable
 as List<String>,pendingUids: null == pendingUids ? _self._pendingUids : pendingUids // ignore: cast_nullable_to_non_nullable

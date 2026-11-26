@@ -21,11 +21,26 @@ void main() {
     expect(group.id, 'g1');
     expect(group.memberCount, 2);
     expect(group.isAdmin('u1'), isTrue);
+    // Documents from before `admins`: the owner is the only admin.
+    expect(group.adminUids, ['u1']);
+    expect(group.isAdmin('u2'), isFalse);
     expect(group.isActiveMember('u2'), isTrue);
     expect(group.isPending('u3'), isTrue);
     expect(group.isPending('u2'), isFalse);
     expect(group.createdAt!.isAtSameMomentAs(created), isTrue);
     expect(group.requiresApproval, isTrue);
+  });
+
+  test('reads the admins in promotion order', () {
+    final group = GroupMapper.fromFirestore('g1', {
+      'ownerUid': 'u1',
+      'admins': ['u1', 'u3'],
+      'members': ['u1', 'u2', 'u3'],
+    });
+    expect(group.adminUids, ['u1', 'u3']);
+    expect(group.isAdmin('u3'), isTrue);
+    expect(group.isOwner('u3'), isFalse);
+    expect(group.isAdmin('u2'), isFalse);
   });
 
   test('missing or malformed fields fall back to defaults', () {
@@ -44,6 +59,7 @@ void main() {
       hasPassword: false,
     );
     expect(data['members'], ['u1']);
+    expect(data['admins'], ['u1']);
     expect(data['pendingMembers'], isEmpty);
     expect(data['createdAt'], isA<FieldValue>());
     expect(data['deletedAt'], isNull);
@@ -116,19 +132,25 @@ void main() {
   test('a removed member is no longer a member', () {
     final data = GroupMapper.removedMember('admin');
     expect(data['status'], 'removed');
+    expect(data['role'], 'member');
     expect(data['removedBy'], 'admin');
     expect(data['removedAt'], isA<FieldValue>());
     expect(GroupMapper.isCurrentMember({'status': 'removed'}), isFalse);
   });
 
-  test('members are listed admin first, then by join date', () {
+  test('members are listed owner, admins, then the rest by join date', () {
     final sorted = sortMembers([
       GroupMember(uid: 'c', joinedAt: DateTime(2026, 3)),
       const GroupMember(uid: 'd'),
       GroupMember(uid: 'b', joinedAt: DateTime(2026, 2)),
+      GroupMember(
+        uid: 'e',
+        role: MemberRole.admin,
+        joinedAt: DateTime(2026, 4),
+      ),
       GroupMember(uid: 'owner', joinedAt: DateTime(2026, 5)),
     ], 'owner');
-    expect(sorted.map((m) => m.uid), ['owner', 'b', 'c', 'd']);
+    expect(sorted.map((m) => m.uid), ['owner', 'e', 'b', 'c', 'd']);
   });
 
   test('leaving keeps the member document, marked left', () {

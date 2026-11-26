@@ -6,6 +6,7 @@ import 'package:financial_between_us/features/groups/domain/group.dart';
 import 'package:financial_between_us/features/groups/domain/group_code_lookup.dart';
 import 'package:financial_between_us/features/groups/domain/group_failure.dart';
 import 'package:financial_between_us/features/groups/domain/group_member.dart';
+import 'package:financial_between_us/features/groups/domain/group_settings.dart';
 import 'package:financial_between_us/features/groups/domain/join_outcome.dart';
 import 'package:financial_between_us/features/groups/domain/leave_plan.dart';
 
@@ -74,6 +75,7 @@ class FakeGroupsRepository implements GroupsRepository {
         name: name.trim(),
         code: nextCode,
         ownerUid: uid,
+        adminUids: [uid],
         requiresApproval: requiresApproval,
         hasPassword: withPassword,
         memberUids: [uid],
@@ -141,11 +143,16 @@ class FakeGroupsRepository implements GroupsRepository {
       CancelRequest() => current.copyWith(
         pendingUids: current.pendingUids.where((u) => u != uid).toList(),
       ),
-      LeaveAsMember() => current.copyWith(memberUids: without),
-      LeaveAndTransfer(:final newOwnerUid) => current.copyWith(
+      LeaveAsMember() => current.copyWith(
         memberUids: without,
-        ownerUid: newOwnerUid,
+        adminUids: current.adminUids.where((u) => u != uid).toList(),
       ),
+      LeaveAndTransfer(:final newOwnerUid, :final adminUids) =>
+        current.copyWith(
+          memberUids: without,
+          ownerUid: newOwnerUid,
+          adminUids: adminUids,
+        ),
       LeaveAndArchive() => current.copyWith(
         memberUids: without,
         deletedAt: DateTime(2026, 11, 25),
@@ -193,9 +200,71 @@ class FakeGroupsRepository implements GroupsRepository {
     if (memberUid == adminUid || !group.isActiveMember(memberUid)) {
       throw const NotAMember();
     }
+    if (!group.canRemove(adminUid, memberUid)) throw const NotGroupOwner();
     _put(
       group.copyWith(
         memberUids: group.memberUids.where((u) => u != memberUid).toList(),
+        adminUids: group.adminUids.where((u) => u != memberUid).toList(),
+      ),
+    );
+  }
+
+  @override
+  Future<void> updateSettings({
+    required String groupId,
+    required String adminUid,
+    required GroupSettings settings,
+  }) async {
+    calls.add('update:$groupId');
+    _throwIfNeeded();
+    final group = _asAdmin(groupId, adminUid);
+    switch (settings.password) {
+      case SetPassword(:final password):
+        passwords[group.code] = password;
+      case RemovePassword():
+        passwords.remove(group.code);
+      case KeepPassword():
+        break;
+    }
+    _put(
+      group.copyWith(
+        name: settings.name.trim(),
+        requiresApproval: settings.requiresApproval,
+        hasPassword: settings.hasPasswordFor(group),
+      ),
+    );
+  }
+
+  @override
+  Future<void> promoteMember({
+    required String groupId,
+    required String adminUid,
+    required String memberUid,
+  }) async {
+    calls.add('promote:$memberUid');
+    _throwIfNeeded();
+    final group = _asAdmin(groupId, adminUid);
+    if (!group.isActiveMember(memberUid)) throw const NotAMember();
+    if (!group.canPromote(adminUid, memberUid)) return;
+    _put(group.copyWith(adminUids: [...group.adminUids, memberUid]));
+  }
+
+  @override
+  Future<void> demoteMember({
+    required String groupId,
+    required String adminUid,
+    required String memberUid,
+  }) async {
+    calls.add('demote:$memberUid');
+    _throwIfNeeded();
+    final group = _asAdmin(groupId, adminUid);
+    if (!group.isOwner(adminUid) || group.isOwner(memberUid)) {
+      throw const NotGroupOwner();
+    }
+    if (!group.canDemote(adminUid, memberUid)) return;
+    _put(
+      group.copyWith(
+        adminUids: group.adminUids.where((u) => u != memberUid).toList(),
       ),
     );
   }

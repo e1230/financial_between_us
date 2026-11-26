@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 Group _group({
   String owner = 'owner',
+  List<String>? admins,
   List<String> members = const ['owner', 'ana', 'beto'],
   List<String> pending = const [],
   DateTime? deletedAt,
@@ -13,6 +14,7 @@ Group _group({
   name: 'Fútbol',
   code: 'FUT-2345',
   ownerUid: owner,
+  adminUids: admins ?? [owner],
   memberUids: members,
   pendingUids: pending,
   deletedAt: deletedAt,
@@ -23,13 +25,37 @@ void main() {
     expect(planLeave(_group(), 'ana'), isA<LeaveAsMember>());
   });
 
+  test('an admin who is not the owner leaves as a member', () {
+    expect(
+      planLeave(_group(admins: ['owner', 'beto']), 'beto'),
+      isA<LeaveAsMember>(),
+    );
+  });
+
   test('the owner hands the group to the oldest remaining member', () {
     final plan = planLeave(_group(members: ['beto', 'owner', 'ana']), 'owner');
     expect(plan, isA<LeaveAndTransfer>());
-    expect((plan as LeaveAndTransfer).newOwnerUid, 'beto');
+    plan as LeaveAndTransfer;
+    expect(plan.newOwnerUid, 'beto');
+    expect(plan.adminUids, ['beto']);
+    expect(plan.wasAdmin, isFalse);
 
     final next = planLeave(_group(), 'owner') as LeaveAndTransfer;
     expect(next.newOwnerUid, 'ana');
+  });
+
+  test('with other admins, the oldest admin becomes the owner', () {
+    final plan = planLeave(
+      _group(
+        admins: ['owner', 'beto', 'ana'],
+        members: ['owner', 'ana', 'beto'],
+      ),
+      'owner',
+    ) as LeaveAndTransfer;
+    // Promotion order, not join order.
+    expect(plan.newOwnerUid, 'beto');
+    expect(plan.adminUids, ['beto', 'ana']);
+    expect(plan.wasAdmin, isTrue);
   });
 
   test('pending members do not inherit the group', () {

@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/widgets/fbu_dialog.dart';
 import '../../../../core/widgets/fbu_pill_button.dart';
+import '../../../../core/widgets/fbu_primary_button.dart';
 import '../../../auth/presentation/widgets/auth_banner.dart';
 import '../../../home/presentation/dialogs/dialog_parts.dart';
 import '../../../home/presentation/home_strings.dart';
@@ -45,13 +46,46 @@ Future<bool> showRejectRequestDialog(
   ),
 );
 
+/// Asks before an admin makes [name] an admin too.
+Future<bool> showPromoteMemberDialog(
+  BuildContext context, {
+  required String name,
+  required Future<void> Function() onConfirm,
+}) => _show(
+  context,
+  MemberActionDialog(
+    title: GroupsStrings.promoteTitle(name),
+    text: GroupsStrings.promoteText,
+    confirmLabel: GroupsStrings.promote,
+    busyLabel: GroupsStrings.promoting,
+    destructive: false,
+    onConfirm: onConfirm,
+  ),
+);
+
+/// Asks before the owner turns the admin [name] back into a plain member.
+Future<bool> showDemoteMemberDialog(
+  BuildContext context, {
+  required String name,
+  required Future<void> Function() onConfirm,
+}) => _show(
+  context,
+  MemberActionDialog(
+    title: GroupsStrings.demoteTitle(name),
+    text: GroupsStrings.demoteText,
+    confirmLabel: GroupsStrings.demote,
+    busyLabel: GroupsStrings.demoting,
+    onConfirm: onConfirm,
+  ),
+);
+
 Future<bool> _show(BuildContext context, Widget dialog) async =>
     await showFbuDialog<bool>(context: context, builder: (_) => dialog) ??
     false;
 
-/// Destructive confirmation of an admin action on a member. Runs
-/// [onConfirm] and closes; on a [GroupFailure] it shows a banner and stays
-/// open.
+/// Confirmation of an admin action on a member, red when [destructive].
+/// Runs [onConfirm] and closes; on a [GroupFailure] it shows a banner and
+/// stays open.
 class MemberActionDialog extends StatefulWidget {
   const MemberActionDialog({
     super.key,
@@ -61,6 +95,7 @@ class MemberActionDialog extends StatefulWidget {
     required this.busyLabel,
     required this.onConfirm,
     this.warning,
+    this.destructive = true,
   });
 
   final String title;
@@ -71,6 +106,9 @@ class MemberActionDialog extends StatefulWidget {
   final String confirmLabel;
   final String busyLabel;
   final Future<void> Function() onConfirm;
+
+  /// Red confirm button; otherwise the green primary one.
+  final bool destructive;
 
   @override
   State<MemberActionDialog> createState() => _MemberActionDialogState();
@@ -120,13 +158,21 @@ class _MemberActionDialogState extends State<MemberActionDialog> {
             AuthBanner(message: HomeStrings.failure(failure)),
           ],
           SizedBox(height: tokens.space3),
-          FbuPillButton(
-            onPressed: _confirm,
-            isLoading: _busy,
-            loadingSemanticsLabel: widget.busyLabel,
-            colors: FbuPillButtonColors.destructive(tokens),
-            child: Text(widget.confirmLabel),
-          ),
+          if (widget.destructive)
+            FbuPillButton(
+              onPressed: _confirm,
+              isLoading: _busy,
+              loadingSemanticsLabel: widget.busyLabel,
+              colors: FbuPillButtonColors.destructive(tokens),
+              child: Text(widget.confirmLabel),
+            )
+          else
+            FbuPrimaryButton(
+              onPressed: _confirm,
+              isLoading: _busy,
+              loadingSemanticsLabel: widget.busyLabel,
+              child: Text(widget.confirmLabel),
+            ),
           SizedBox(height: tokens.space1),
           DialogCancelButton(
             onPressed: _busy ? null : () => Navigator.of(context).pop(false),

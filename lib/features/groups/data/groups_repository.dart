@@ -11,6 +11,7 @@ import '../domain/group_code.dart';
 import '../domain/group_code_lookup.dart';
 import '../domain/group_failure.dart';
 import '../domain/group_member.dart';
+import '../domain/group_settings.dart';
 import '../domain/join_outcome.dart';
 import '../domain/leave_plan.dart';
 import 'group_mapper.dart';
@@ -48,9 +49,10 @@ abstract interface class GroupsRepository {
   });
 
   /// [uid] leaves [groupId] (or withdraws a pending request), as decided by
-  /// [planLeave]: the owner hands the group to the oldest member, or
-  /// archives it when alone. The membership is soft deleted. Throws
-  /// [NotAMember] if [uid] is no longer in the group.
+  /// [planLeave]: an admin stops being one, and the owner hands the group
+  /// to the oldest admin (or member), or archives it when alone. The
+  /// membership is soft deleted. Throws [NotAMember] if [uid] is no longer
+  /// in the group.
   Future<void> leave({required String groupId, required String uid});
 
   /// Live current members (active and pending) of [groupId], unordered
@@ -58,8 +60,9 @@ abstract interface class GroupsRepository {
   Stream<List<GroupMember>> watchMembers(String groupId);
 
   /// The admin [adminUid] removes the active member [memberUid] (soft
-  /// delete; they may join again with the code). Throws [NotGroupAdmin] or
-  /// [NotAMember].
+  /// delete; they may join again with the code). Only the owner removes
+  /// another admin (see [Group.canRemove]). Throws [NotGroupAdmin],
+  /// [NotGroupOwner] or [NotAMember].
   Future<void> removeMember({
     required String groupId,
     required String adminUid,
@@ -77,6 +80,34 @@ abstract interface class GroupsRepository {
   /// The admin rejects the pending request of [memberUid] (they may ask
   /// again with the code).
   Future<void> rejectMember({
+    required String groupId,
+    required String adminUid,
+    required String memberUid,
+  });
+
+  /// The admin [adminUid] makes the active member [memberUid] an admin too.
+  /// Does nothing if they already are one. Throws [NotGroupAdmin] or
+  /// [NotAMember].
+  Future<void> promoteMember({
+    required String groupId,
+    required String adminUid,
+    required String memberUid,
+  });
+
+  /// An admin changes the name, the approval of new members or the
+  /// password of [groupId]. The join code entry is kept in sync; a new
+  /// password gets a new salt, so the old one stops working. Throws
+  /// [NotGroupAdmin] or [NotAMember].
+  Future<void> updateSettings({
+    required String groupId,
+    required String adminUid,
+    required GroupSettings settings,
+  });
+
+  /// The owner [adminUid] turns the admin [memberUid] back into a plain
+  /// member. Does nothing if they are not an admin. Throws [NotGroupOwner]
+  /// (also for the owner themselves) or [NotAMember].
+  Future<void> demoteMember({
     required String groupId,
     required String adminUid,
     required String memberUid,
@@ -326,6 +357,16 @@ class FirestoreGroupsRepository implements GroupsRepository {
           final plan = planLeave(group, uid);
           final wasPending = plan is CancelRequest;
           final now = FieldValue.serverTimestamp();
+          // Written whole (not with arrayRemove) so an old document without
+          // `admins` gets the right list.
+          final admins = switch (plan) {
+            LeaveAndTransfer(:final adminUids) => adminUids,
+            LeaveAsMember() when group.adminUids.contains(uid) => _without(
+              group.adminUids,
+              uid,
+            ),
+            _ => null,
+          };
 
           tx
             ..update(groupRef, {
@@ -334,6 +375,7 @@ class FirestoreGroupsRepository implements GroupsRepository {
               GroupFields.updatedAt: now,
               if (plan case LeaveAndTransfer(:final newOwnerUid))
                 GroupFields.ownerUid: newOwnerUid,
+              GroupFields.admins: ?admins,
               if (plan is LeaveAndArchive) GroupFields.deletedAt: now,
             })
             ..update(_member(groupId, uid), GroupMapper.leftMember())
@@ -356,22 +398,23 @@ class FirestoreGroupsRepository implements GroupsRepository {
             );
 
           switch (plan) {
-            case LeaveAndTransfer(:final newOwnerUid):
-              tx
-                ..update(_member(groupId, newOwnerUid), {
+            case LeaveAndTransfer(:final newOwnerUid, :final wasAdmin):
+              if (!wasAdmin) {
+                tx.update(_member(groupId, newOwnerUid), {
                   MemberFields.role: MemberFields.roleAdmin,
-                })
-                ..set(
-                  _newAuditEntry(groupId),
-                  GroupMapper.auditEntry(
-                    action: AuditLogFields.actionTransferOwnership,
-                    entity: AuditLogFields.entityGroup,
-                    entityId: groupId,
-                    uid: uid,
-                    before: {GroupFields.ownerUid: uid},
-                    after: {GroupFields.ownerUid: newOwnerUid},
-                  ),
-                );
+                });
+              }
+              tx.set(
+                _newAuditEntry(groupId),
+                GroupMapper.auditEntry(
+                  action: AuditLogFields.actionTransferOwnership,
+                  entity: AuditLogFields.entityGroup,
+                  entityId: groupId,
+                  uid: uid,
+                  before: {GroupFields.ownerUid: uid},
+                  after: {GroupFields.ownerUid: newOwnerUid},
+                ),
+              );
             case LeaveAndArchive():
               tx
                 ..update(_code(group.code), {GroupCodeFields.deletedAt: now})
@@ -420,9 +463,12 @@ class FirestoreGroupsRepository implements GroupsRepository {
     if (memberUid == adminUid || !group.isActiveMember(memberUid)) {
       throw const NotAMember();
     }
+    if (!group.canRemove(adminUid, memberUid)) throw const NotGroupOwner();
+    final wasAdmin = group.adminUids.contains(memberUid);
     tx
       ..update(_groups.doc(groupId), {
         GroupFields.members: FieldValue.arrayRemove([memberUid]),
+        if (wasAdmin) GroupFields.admins: _without(group.adminUids, memberUid),
         GroupFields.updatedAt: FieldValue.serverTimestamp(),
       })
       ..update(_member(groupId, memberUid), GroupMapper.removedMember(adminUid))
@@ -493,8 +539,127 @@ class FirestoreGroupsRepository implements GroupsRepository {
       );
   });
 
-  /// Reads the group fresh in a transaction, checks that [adminUid] is its
-  /// admin and lets [write] queue the changes.
+  @override
+  Future<void> promoteMember({
+    required String groupId,
+    required String adminUid,
+    required String memberUid,
+  }) => _adminChange(groupId, adminUid, (tx, group) {
+    if (!group.isActiveMember(memberUid)) throw const NotAMember();
+    if (!group.canPromote(adminUid, memberUid)) return;
+    tx
+      ..update(_groups.doc(groupId), {
+        // Appended last, so `admins` stays in promotion order. Written
+        // whole so an old document without `admins` keeps its owner.
+        GroupFields.admins: [...group.adminUids, memberUid],
+        GroupFields.updatedAt: FieldValue.serverTimestamp(),
+      })
+      ..update(_member(groupId, memberUid), {
+        MemberFields.role: MemberFields.roleAdmin,
+      })
+      ..set(
+        _newAuditEntry(groupId),
+        _roleAudit(
+          AuditLogFields.actionPromote,
+          adminUid: adminUid,
+          memberUid: memberUid,
+          from: MemberFields.roleMember,
+          to: MemberFields.roleAdmin,
+        ),
+      );
+  });
+
+  @override
+  Future<void> demoteMember({
+    required String groupId,
+    required String adminUid,
+    required String memberUid,
+  }) => _adminChange(groupId, adminUid, (tx, group) {
+    if (!group.isOwner(adminUid) || group.isOwner(memberUid)) {
+      throw const NotGroupOwner();
+    }
+    if (!group.isActiveMember(memberUid)) throw const NotAMember();
+    if (!group.canDemote(adminUid, memberUid)) return;
+    tx
+      ..update(_groups.doc(groupId), {
+        GroupFields.admins: _without(group.adminUids, memberUid),
+        GroupFields.updatedAt: FieldValue.serverTimestamp(),
+      })
+      ..update(_member(groupId, memberUid), {
+        MemberFields.role: MemberFields.roleMember,
+      })
+      ..set(
+        _newAuditEntry(groupId),
+        _roleAudit(
+          AuditLogFields.actionDemote,
+          adminUid: adminUid,
+          memberUid: memberUid,
+          from: MemberFields.roleAdmin,
+          to: MemberFields.roleMember,
+        ),
+      );
+  });
+
+  @override
+  Future<void> updateSettings({
+    required String groupId,
+    required String adminUid,
+    required GroupSettings settings,
+  }) => _adminChange(groupId, adminUid, (tx, group) {
+    if (!settings.changes(group)) return;
+    final name = settings.name.trim();
+    final hasPassword = settings.hasPasswordFor(group);
+    final password = settings.password;
+    final salt = password is SetPassword ? _hasher.newSalt() : null;
+    final shared = {
+      GroupFields.name: name,
+      GroupFields.requiresApproval: settings.requiresApproval,
+      GroupFields.hasPassword: hasPassword,
+    };
+    tx
+      ..update(_groups.doc(groupId), {
+        ...shared,
+        GroupFields.updatedAt: FieldValue.serverTimestamp(),
+      })
+      ..update(_code(group.code), {
+        GroupCodeFields.name: name,
+        GroupCodeFields.requiresApproval: settings.requiresApproval,
+        GroupCodeFields.hasPassword: hasPassword,
+        if (password is! KeepPassword) GroupCodeFields.salt: salt,
+      });
+    // Nothing is deleted: without a password the old hash stays, unused
+    // (the rules only compare it while `hasPassword` is true).
+    if (password is SetPassword) {
+      tx.set(_password(groupId), {
+        GroupSecretFields.hash: _hasher.hash(
+          salt: salt!,
+          password: password.password,
+        ),
+      });
+    }
+    tx.set(
+      _newAuditEntry(groupId),
+      GroupMapper.auditEntry(
+        action: AuditLogFields.actionUpdate,
+        entity: AuditLogFields.entityGroup,
+        entityId: groupId,
+        uid: adminUid,
+        before: {
+          GroupFields.name: group.name,
+          GroupFields.requiresApproval: group.requiresApproval,
+          GroupFields.hasPassword: group.hasPassword,
+        },
+        after: {
+          ...shared,
+          // Never the password itself, only that it changed.
+          if (password is SetPassword) AuditLogFields.passwordChanged: true,
+        },
+      ),
+    );
+  });
+
+  /// Reads the group fresh in a transaction, checks that [adminUid] is one
+  /// of its admins and lets [write] queue the changes.
   Future<void> _adminChange(
     String groupId,
     String adminUid,
@@ -524,6 +689,26 @@ class FirestoreGroupsRepository implements GroupsRepository {
     before: {MemberFields.status: from},
     after: {MemberFields.status: to},
   );
+
+  static Map<String, Object?> _roleAudit(
+    String action, {
+    required String adminUid,
+    required String memberUid,
+    required String from,
+    required String to,
+  }) => GroupMapper.auditEntry(
+    action: action,
+    entity: AuditLogFields.entityMember,
+    entityId: memberUid,
+    uid: adminUid,
+    before: {MemberFields.role: from},
+    after: {MemberFields.role: to},
+  );
+
+  static List<String> _without(List<String> uids, String uid) => [
+    for (final u in uids)
+      if (u != uid) u,
+  ];
 
   /// Runs [action] and converts any error into a [GroupFailure].
   Future<T> _guard<T>(Future<T> Function() action) async {

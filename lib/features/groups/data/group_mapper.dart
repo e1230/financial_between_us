@@ -9,6 +9,10 @@ abstract final class GroupFields {
   static const String name = 'name';
   static const String code = 'code';
   static const String ownerUid = 'ownerUid';
+
+  /// Admins in promotion order, the owner first. Older documents lack it:
+  /// their only admin is the owner.
+  static const String admins = 'admins';
   static const String requiresApproval = 'requiresApproval';
   static const String hasPassword = 'hasPassword';
   static const String members = 'members';
@@ -81,6 +85,12 @@ abstract final class AuditLogFields {
   static const String actionRemove = 'remove';
   static const String actionApprove = 'approve';
   static const String actionReject = 'reject';
+  static const String actionPromote = 'promote';
+  static const String actionDemote = 'demote';
+  static const String actionUpdate = 'update';
+
+  /// In the `after` of an [actionUpdate]: a new password was set.
+  static const String passwordChanged = 'passwordChanged';
   static const String entityGroup = 'group';
   static const String entityMember = 'member';
 }
@@ -93,7 +103,10 @@ abstract final class GroupMapper {
     id: id,
     name: data[GroupFields.name] as String? ?? '',
     code: data[GroupFields.code] as String? ?? '',
-    ownerUid: data[GroupFields.ownerUid] as String? ?? '',
+    ownerUid: _ownerUid(data),
+    adminUids: data.containsKey(GroupFields.admins)
+        ? _uids(data[GroupFields.admins])
+        : [if (_ownerUid(data).isNotEmpty) _ownerUid(data)],
     requiresApproval: data[GroupFields.requiresApproval] as bool? ?? false,
     hasPassword: data[GroupFields.hasPassword] as bool? ?? false,
     memberUids: _uids(data[GroupFields.members]),
@@ -102,7 +115,8 @@ abstract final class GroupMapper {
     deletedAt: _date(data[GroupFields.deletedAt]),
   );
 
-  /// Document of a new group: its creator is the only (active) member.
+  /// Document of a new group: its creator is the only (active) member and
+  /// its only admin.
   static Map<String, Object?> newGroup({
     required String name,
     required String code,
@@ -115,6 +129,7 @@ abstract final class GroupMapper {
     GroupFields.ownerUid: ownerUid,
     GroupFields.requiresApproval: requiresApproval,
     GroupFields.hasPassword: hasPassword,
+    GroupFields.admins: [ownerUid],
     GroupFields.members: [ownerUid],
     GroupFields.pendingMembers: <String>[],
     GroupFields.createdAt: FieldValue.serverTimestamp(),
@@ -172,8 +187,9 @@ abstract final class GroupMapper {
   );
 
   /// Changes of a member document removed by [adminUid] (also a rejected
-  /// request).
+  /// request). A removed admin stops being one.
   static Map<String, Object?> removedMember(String adminUid) => {
+    MemberFields.role: MemberFields.roleMember,
     MemberFields.status: MemberFields.statusRemoved,
     MemberFields.removedAt: FieldValue.serverTimestamp(),
     MemberFields.removedBy: adminUid,
@@ -230,6 +246,9 @@ abstract final class GroupMapper {
     AuditLogFields.uid: uid,
     AuditLogFields.timestamp: FieldValue.serverTimestamp(),
   };
+
+  static String _ownerUid(Map<String, dynamic> data) =>
+      data[GroupFields.ownerUid] as String? ?? '';
 
   static List<String> _uids(Object? value) =>
       value is List ? value.whereType<String>().toList() : const [];

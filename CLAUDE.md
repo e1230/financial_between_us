@@ -47,7 +47,7 @@ lib/
 users/{uid}                      displayName, nickname, email, photoUrl, color (#RRGGBB), …
 nicknames/{nickname}             uid, email
 groupCodes/{code}                gid, name, hasPassword, requiresApproval, salt, deletedAt?   (código LIQ-7K4P, único)
-groups/{groupId}                 name, code, ownerUid, requiresApproval, hasPassword,
+groups/{groupId}                 name, code, ownerUid, admins: [uid], requiresApproval, hasPassword,
                                  members: [uid] (activos), pendingMembers: [uid]
   members/{uid}                  role (admin|member), status (active|pending|left|removed), joinedAt,
                                  leftAt?, removedAt?, removedBy?
@@ -61,8 +61,9 @@ groups/{groupId}                 name, code, ownerUid, requiresApproval, hasPass
 ```
 
 - El grupo activo del Home se guarda por dispositivo en `SharedPreferences` (`fbu.selected_group_id`).
-- Salir de un grupo (o cancelar una solicitud) es soft delete: el uid sale de `members`/`pendingMembers` y `members/{uid}` queda con `status: left`. Si sale el dueño, la administración pasa al miembro activo más antiguo (el primero de `members`, que está en orden de llegada); si estaba solo, el grupo y su código se archivan con `deletedAt`. Quien salió puede volver con el código.
-- El admin (el dueño, `ownerUid`) puede eliminar miembros activos y aprobar o rechazar solicitudes desde el detalle del grupo. Eliminar y rechazar son soft delete (`status: removed`); la persona puede volver a pedir entrar con el código. Al aprobar, `joinedAt` pasa a la fecha de aprobación.
+- Salir de un grupo (o cancelar una solicitud) es soft delete: el uid sale de `members`/`pendingMembers` y `members/{uid}` queda con `status: left`. Un admin que sale deja de serlo. Si sale el dueño, la administración principal pasa al admin más antiguo (el primero que quede en `admins`, que está en orden de ascenso) o, sin otros admins, al miembro activo más antiguo (el primero de `members`, en orden de llegada); si estaba solo, el grupo y su código se archivan con `deletedAt`. Quien salió puede volver con el código.
+- Un grupo tiene uno o varios admins (`admins`, en orden de ascenso; el dueño `ownerUid` es el administrador principal y siempre va primero). Los documentos antiguos sin `admins` tienen al dueño como único admin. Desde el detalle del grupo, cualquier admin aprueba o rechaza solicitudes, elimina miembros que no son admins y asciende miembros activos a admin; solo el dueño elimina a otro admin o le quita el rol, y nadie puede eliminar ni degradar al dueño. `members/{uid}.role` se mantiene sincronizado con `admins`.
+- Cualquier admin edita el grupo desde el detalle ("Editar grupo"): nombre, aprobación de nuevos miembros y contraseña (poner, cambiar o quitar). `groupCodes/{code}` refleja esos campos en el mismo batch; una contraseña nueva trae sal nueva y la anterior deja de funcionar. Quitar la contraseña no borra `secrets/password`: queda sin uso mientras `hasPassword` sea `false`. Las solicitudes pendientes siguen pendientes aunque se apague la aprobación. Eliminar y rechazar son soft delete (`status: removed`); la persona puede volver a pedir entrar con el código. Al aprobar, `joinedAt` pasa a la fecha de aprobación.
 - Los saldos por persona salen de `features/balances` (`balancesWith`, `netBalance`). Mientras no existan las salidas, `FakeBalancesRepository` entrega deudas de ejemplo.
 
 ## Reglas de negocio (no negociables)

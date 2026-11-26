@@ -20,9 +20,15 @@ final class NotAMember extends GroupFailure {
   const NotAMember();
 }
 
-/// Only the admin of the group can do that.
+/// Only an admin of the group can do that.
 final class NotGroupAdmin extends GroupFailure {
   const NotGroupAdmin();
+}
+
+/// Only the main admin (`ownerUid`) can do that, like removing or demoting
+/// another admin.
+final class NotGroupOwner extends GroupFailure {
+  const NotGroupOwner();
 }
 
 /// The group password does not match.
