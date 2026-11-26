@@ -16,6 +16,7 @@ import '../domain/join_outcome.dart';
 import '../domain/leave_plan.dart';
 import 'group_mapper.dart';
 import 'group_password_hasher.dart';
+import 'membership_index_repository.dart';
 
 /// Groups of the signed-in user: list, create, join and leave. Every method
 /// throws a [GroupFailure] on error.
@@ -152,6 +153,11 @@ class FirestoreGroupsRepository implements GroupsRepository {
   DocumentReference<Map<String, dynamic>> _newAuditEntry(String gid) =>
       _groups.doc(gid).collection(FirestoreCollections.groupAuditLog).doc();
 
+  /// `userGroups/{uid}`: kept in the same batch as every change of who is
+  /// an active member (see [MembershipIndexRepository]).
+  DocumentReference<Map<String, dynamic>> _index(String uid) =>
+      MembershipIndex.ref(_firestore, uid);
+
   @override
   Stream<List<Group>> watchMyGroups(String uid) {
     // Two queries (active and pending) merged; neither needs an index.
@@ -215,6 +221,7 @@ class FirestoreGroupsRepository implements GroupsRepository {
             _member(gid, uid),
             GroupMapper.member(isAdmin: true, isActive: true),
           )
+          ..set(_index(uid), MembershipIndex.added(gid), MembershipIndex.merge)
           ..set(
             codeRef,
             GroupMapper.codeEntry(
@@ -325,6 +332,9 @@ class FirestoreGroupsRepository implements GroupsRepository {
           after: {MemberFields.status: status},
         ),
       );
+    if (active) {
+      batch.set(_index(uid), MembershipIndex.added(gid), MembershipIndex.merge);
+    }
     try {
       await batch.commit();
     } on FirebaseException catch (error) {
@@ -396,6 +406,14 @@ class FirestoreGroupsRepository implements GroupsRepository {
                 after: {MemberFields.status: MemberFields.statusLeft},
               ),
             );
+
+          if (!wasPending) {
+            tx.set(
+              _index(uid),
+              MembershipIndex.removed(groupId),
+              MembershipIndex.merge,
+            );
+          }
 
           switch (plan) {
             case LeaveAndTransfer(:final newOwnerUid, :final wasAdmin):
@@ -473,6 +491,11 @@ class FirestoreGroupsRepository implements GroupsRepository {
       })
       ..update(_member(groupId, memberUid), GroupMapper.removedMember(adminUid))
       ..set(
+        _index(memberUid),
+        MembershipIndex.removed(groupId),
+        MembershipIndex.merge,
+      )
+      ..set(
         _newAuditEntry(groupId),
         _memberAudit(
           AuditLogFields.actionRemove,
@@ -502,6 +525,11 @@ class FirestoreGroupsRepository implements GroupsRepository {
         MemberFields.status: MemberFields.statusActive,
         MemberFields.joinedAt: FieldValue.serverTimestamp(),
       })
+      ..set(
+        _index(memberUid),
+        MembershipIndex.added(groupId),
+        MembershipIndex.merge,
+      )
       ..set(
         _newAuditEntry(groupId),
         _memberAudit(

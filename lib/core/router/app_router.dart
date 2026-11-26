@@ -20,6 +20,9 @@ import '../../features/home/presentation/home_shell.dart';
 import '../../features/home/presentation/home_strings.dart';
 import '../../features/home/presentation/menu/avatar_menu_screen.dart';
 import '../../features/onboarding/presentation/walkthrough_screen.dart';
+import '../../features/payment_accounts/presentation/form/edit_payment_account_screen.dart';
+import '../../features/payment_accounts/presentation/form/payment_account_form_screen.dart';
+import '../../features/payment_accounts/presentation/payment_accounts_screen.dart';
 import '../../features/profile/presentation/complete_profile_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/splash/presentation/splash_screen.dart';
@@ -42,6 +45,8 @@ abstract final class AppRoutes {
   // Pages over the shell (no bottom bar).
   static const String menu = '/menu';
   static const String accounts = '/accounts';
+  static const String newAccount = '/accounts/new';
+  static const String editAccount = '/accounts/:accountId/edit';
   static const String groups = '/groups';
   static const String groupDetail = '/groups/:groupId';
   static const String newEvent = '/events/new';
@@ -61,6 +66,9 @@ abstract final class AppRoutes {
   /// Optional profile data after signing up. Outside `/auth`, so back never
   /// returns to the sign-in screens.
   static const String completeProfile = '/profile/complete';
+
+  /// Form to edit the payment account [accountId].
+  static String editAccountFor(String accountId) => '$accounts/$accountId/edit';
 
   /// Detail of the group [groupId].
   static String groupDetailFor(String groupId) => '$groups/$groupId';
@@ -253,7 +261,33 @@ List<RouteBase> overShellRoutes() => [
     parentNavigatorKey: rootNavigatorKey,
     pageBuilder: (context, state) => _menuPage(context, state),
   ),
-  _pending(AppRoutes.accounts, HomeStrings.accounts),
+  GoRoute(
+    path: AppRoutes.accounts,
+    parentNavigatorKey: rootNavigatorKey,
+    builder: (context, state) => const PaymentAccountsScreen(),
+    routes: [
+      GoRoute(
+        path: _child(AppRoutes.newAccount, of: AppRoutes.accounts),
+        parentNavigatorKey: rootNavigatorKey,
+        pageBuilder: (context, state) => MaterialPage<void>(
+          key: state.pageKey,
+          fullscreenDialog: true,
+          child: const PaymentAccountFormScreen(),
+        ),
+      ),
+      GoRoute(
+        path: _child(AppRoutes.editAccount, of: AppRoutes.accounts),
+        parentNavigatorKey: rootNavigatorKey,
+        pageBuilder: (context, state) => MaterialPage<void>(
+          key: state.pageKey,
+          fullscreenDialog: true,
+          child: EditPaymentAccountScreen(
+            accountId: state.pathParameters['accountId']!,
+          ),
+        ),
+      ),
+    ],
+  ),
   GoRoute(
     path: AppRoutes.groups,
     parentNavigatorKey: rootNavigatorKey,

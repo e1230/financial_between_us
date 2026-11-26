@@ -1,11 +1,13 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../../core/theme/app_breakpoints.dart';
+
 /// Fixed layout and motion values of the walkthrough (design 360×800 and
 /// 412×915). Colors, the 8-based spacing scale and radii of cards/buttons come
 /// from `AppTokens`; these are the module-specific measurements.
 abstract final class WalkthroughMetrics {
   /// Screens at least this wide use [WalkthroughLayout.wide].
-  static const double wideBreakpoint = 400;
+  static const double wideBreakpoint = AppBreakpoints.wide;
 
   // Progress bar
   static const double progressHeight = 3;

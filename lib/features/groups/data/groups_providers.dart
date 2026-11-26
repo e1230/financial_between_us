@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -6,7 +8,9 @@ import '../../auth/data/auth_providers.dart';
 import '../domain/active_group.dart';
 import '../domain/group.dart';
 import '../domain/group_member.dart';
+import '../domain/membership_index.dart';
 import 'groups_repository.dart';
+import 'membership_index_repository.dart';
 import 'selected_group_repository.dart';
 
 part 'groups_providers.g.dart';
@@ -81,4 +85,43 @@ Stream<List<GroupMember>> groupMembers(Ref ref, String groupId) async* {
       .watch(groupsRepositoryProvider)
       .watchMembers(groupId)
       .map((members) => sortMembers(members, ownerUid));
+}
+
+@Riverpod(keepAlive: true)
+MembershipIndexRepository membershipIndexRepository(Ref ref) =>
+    FirestoreMembershipIndexRepository(ref.watch(firebaseFirestoreProvider));
+
+/// Repairs the signed-in user's `userGroups/{uid}` whenever their groups
+/// change: adds active groups that are missing (e.g. joined before the
+/// index existed) and removes the ones they no longer belong to. Errors
+/// are only logged; the next change of the groups tries again.
+///
+/// Kept alive for the whole session from `FbuApp`.
+@Riverpod(keepAlive: true)
+Future<void> membershipIndexSync(Ref ref) async {
+  final user = await ref.watch(authStateChangesProvider.future);
+  if (user == null) return;
+  final groups = await ref.watch(myGroupsProvider.future);
+  final index = ref.watch(membershipIndexRepositoryProvider);
+  try {
+    final diff = diffMembershipIndex(
+      uid: user.uid,
+      groups: groups,
+      indexed: await index.read(user.uid),
+    );
+    // One group per write: the security rules check each one.
+    for (final gid in diff.toAdd) {
+      await index.add(uid: user.uid, groupId: gid);
+    }
+    for (final gid in diff.toRemove) {
+      await index.remove(uid: user.uid, groupId: gid);
+    }
+  } catch (error, stackTrace) {
+    developer.log(
+      'Could not sync the membership index',
+      name: 'fbu.groups',
+      error: error,
+      stackTrace: stackTrace,
+    );
+  }
 }

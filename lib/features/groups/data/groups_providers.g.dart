@@ -414,3 +414,105 @@ final class GroupMembersFamily extends $Family
   @override
   String toString() => r'groupMembersProvider';
 }
+
+@ProviderFor(membershipIndexRepository)
+final membershipIndexRepositoryProvider = MembershipIndexRepositoryProvider._();
+
+final class MembershipIndexRepositoryProvider
+    extends
+        $FunctionalProvider<
+          MembershipIndexRepository,
+          MembershipIndexRepository,
+          MembershipIndexRepository
+        >
+    with $Provider<MembershipIndexRepository> {
+  MembershipIndexRepositoryProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'membershipIndexRepositoryProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$membershipIndexRepositoryHash();
+
+  @$internal
+  @override
+  $ProviderElement<MembershipIndexRepository> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  MembershipIndexRepository create(Ref ref) {
+    return membershipIndexRepository(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(MembershipIndexRepository value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<MembershipIndexRepository>(value),
+    );
+  }
+}
+
+String _$membershipIndexRepositoryHash() =>
+    r'51d443d82d90d029e72671af709cedfc103c5e6a';
+
+/// Repairs the signed-in user's `userGroups/{uid}` whenever their groups
+/// change: adds active groups that are missing (e.g. joined before the
+/// index existed) and removes the ones they no longer belong to. Errors
+/// are only logged; the next change of the groups tries again.
+///
+/// Kept alive for the whole session from `FbuApp`.
+
+@ProviderFor(membershipIndexSync)
+final membershipIndexSyncProvider = MembershipIndexSyncProvider._();
+
+/// Repairs the signed-in user's `userGroups/{uid}` whenever their groups
+/// change: adds active groups that are missing (e.g. joined before the
+/// index existed) and removes the ones they no longer belong to. Errors
+/// are only logged; the next change of the groups tries again.
+///
+/// Kept alive for the whole session from `FbuApp`.
+
+final class MembershipIndexSyncProvider
+    extends $FunctionalProvider<AsyncValue<void>, void, FutureOr<void>>
+    with $FutureModifier<void>, $FutureProvider<void> {
+  /// Repairs the signed-in user's `userGroups/{uid}` whenever their groups
+  /// change: adds active groups that are missing (e.g. joined before the
+  /// index existed) and removes the ones they no longer belong to. Errors
+  /// are only logged; the next change of the groups tries again.
+  ///
+  /// Kept alive for the whole session from `FbuApp`.
+  MembershipIndexSyncProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'membershipIndexSyncProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$membershipIndexSyncHash();
+
+  @$internal
+  @override
+  $FutureProviderElement<void> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<void> create(Ref ref) {
+    return membershipIndexSync(ref);
+  }
+}
+
+String _$membershipIndexSyncHash() =>
+    r'0a497d334d0fa6ece4762873ed0fb95f8bc79ce6';

@@ -30,4 +30,17 @@ abstract final class FirestoreCollections {
 
   /// `groups/{groupId}/auditLog/{logId}`: write-only change log.
   static const String groupAuditLog = 'auditLog';
+
+  /// `users/{uid}/paymentAccounts/{accountId}`: where the user receives
+  /// payments. Readable by the owner and by whoever shares a group with
+  /// them.
+  static const String paymentAccounts = 'paymentAccounts';
+
+  /// `users/{uid}/auditLog/{logId}`: write-only log of the user's own
+  /// changes (payment accounts).
+  static const String userAuditLog = 'auditLog';
+
+  /// `userGroups/{uid}` → `{groupIds}`: groups where the user is an active
+  /// member. Lets the security rules tell whether two users share a group.
+  static const String userGroups = 'userGroups';
 }

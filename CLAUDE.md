@@ -33,6 +33,7 @@ lib/
     profile/
     groups/      # crear, unirse, grupo activo
     home/        # shell con barra inferior, Home, menú del avatar
+    payment_accounts/  # cuentas de pago del usuario (Nequi, Bre-B, …)
     outings/
     balances/
 ```
@@ -45,6 +46,10 @@ lib/
 
 ```
 users/{uid}                      displayName, nickname, email, photoUrl, color (#RRGGBB), …
+  paymentAccounts/{aid}          name, type (breb|nequi|daviplata|cash|other), keyType? (phone|email|document|alias),
+                                 reference (sin formato; "" en cash), createdAt, updatedAt, deletedAt
+  auditLog/{logId}               cambios propios del usuario (cuentas), solo escritura
+userGroups/{uid}                 groupIds: [gid] donde el uid es miembro activo (índice para las reglas)
 nicknames/{nickname}             uid, email
 groupCodes/{code}                gid, name, hasPassword, requiresApproval, salt, deletedAt?   (código LIQ-7K4P, único)
 groups/{groupId}                 name, code, ownerUid, admins: [uid], requiresApproval, hasPassword,
@@ -64,6 +69,9 @@ groups/{groupId}                 name, code, ownerUid, admins: [uid], requiresAp
 - Salir de un grupo (o cancelar una solicitud) es soft delete: el uid sale de `members`/`pendingMembers` y `members/{uid}` queda con `status: left`. Un admin que sale deja de serlo. Si sale el dueño, la administración principal pasa al admin más antiguo (el primero que quede en `admins`, que está en orden de ascenso) o, sin otros admins, al miembro activo más antiguo (el primero de `members`, en orden de llegada); si estaba solo, el grupo y su código se archivan con `deletedAt`. Quien salió puede volver con el código.
 - Un grupo tiene uno o varios admins (`admins`, en orden de ascenso; el dueño `ownerUid` es el administrador principal y siempre va primero). Los documentos antiguos sin `admins` tienen al dueño como único admin. Desde el detalle del grupo, cualquier admin aprueba o rechaza solicitudes, elimina miembros que no son admins y asciende miembros activos a admin; solo el dueño elimina a otro admin o le quita el rol, y nadie puede eliminar ni degradar al dueño. `members/{uid}.role` se mantiene sincronizado con `admins`.
 - Cualquier admin edita el grupo desde el detalle ("Editar grupo"): nombre, aprobación de nuevos miembros y contraseña (poner, cambiar o quitar). `groupCodes/{code}` refleja esos campos en el mismo batch; una contraseña nueva trae sal nueva y la anterior deja de funcionar. Quitar la contraseña no borra `secrets/password`: queda sin uso mientras `hasPassword` sea `false`. Las solicitudes pendientes siguen pendientes aunque se apague la aprobación. Eliminar y rechazar son soft delete (`status: removed`); la persona puede volver a pedir entrar con el código. Al aprobar, `joinedAt` pasa a la fecha de aprobación.
+- Las cuentas de pago son **del usuario, no del grupo**: las mismas en todos sus grupos. Solo el dueño las escribe; las leen él y quien comparta con él un grupo activo (las reglas lo deciden con `userGroups`). Eliminar es soft delete (`deletedAt`) y crear, editar o eliminar escribe en `users/{uid}/auditLog`. Límite suave de 10 por usuario.
+- `userGroups/{uid}` se mantiene en el mismo batch de cada cambio de membresía activa (crear, unirse sin aprobación, aprobar, salir, eliminar) y `membershipIndexSyncProvider` repara el índice propio (p. ej., grupos de antes del índice). Cada escritura suma o quita exactamente un grupo.
+- Compartir texto usa el canal propio `fbu/share` (`MainActivity.kt`, `ACTION_SEND`); no hay `share_plus`.
 - Los saldos por persona salen de `features/balances` (`balancesWith`, `netBalance`). Mientras no existan las salidas, `FakeBalancesRepository` entrega deudas de ejemplo.
 
 ## Reglas de negocio (no negociables)

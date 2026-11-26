@@ -36,6 +36,9 @@ class AppTokens extends ThemeExtension<AppTokens> {
     required this.tileGreenText,
     required this.tileTealText,
     required this.switchOffBorder,
+    required this.logoBrandBackground,
+    required this.logoPlaceholder,
+    required this.outlineMuted,
     required this.space1,
     required this.space2,
     required this.space3,
@@ -84,6 +87,9 @@ class AppTokens extends ThemeExtension<AppTokens> {
     tileGreenText: Color(0xFF5FD47A),
     tileTealText: Color(0xFF6FD1C7),
     switchOffBorder: Color(0xFF6B6B6B),
+    logoBrandBackground: Color(0xFFFFFFFF),
+    logoPlaceholder: Color(0xFFB5B5B5),
+    outlineMuted: Color(0xFF5A5A5A),
     space1: 8,
     space2: 16,
     space3: 24,
@@ -157,6 +163,17 @@ class AppTokens extends ThemeExtension<AppTokens> {
   /// Border of an "off" switch.
   final Color switchOffBorder;
 
+  /// Tile behind a brand logo (Nequi, Bre-B, Daviplata): brands always sit
+  /// on white and are never recolored.
+  final Color logoBrandBackground;
+
+  /// Icon of a brand logo whose asset is missing.
+  final Color logoPlaceholder;
+
+  /// Subtle outlines on dark surfaces: the bottom sheet handle and the
+  /// dashed border of an empty logo.
+  final Color outlineMuted;
+
   // Spacing (multiples of 8)
   final double space1;
   final double space2;
@@ -217,6 +234,9 @@ class AppTokens extends ThemeExtension<AppTokens> {
     Color? tileGreenText,
     Color? tileTealText,
     Color? switchOffBorder,
+    Color? logoBrandBackground,
+    Color? logoPlaceholder,
+    Color? outlineMuted,
     double? space1,
     double? space2,
     double? space3,
@@ -263,6 +283,9 @@ class AppTokens extends ThemeExtension<AppTokens> {
       tileGreenText: tileGreenText ?? this.tileGreenText,
       tileTealText: tileTealText ?? this.tileTealText,
       switchOffBorder: switchOffBorder ?? this.switchOffBorder,
+      logoBrandBackground: logoBrandBackground ?? this.logoBrandBackground,
+      logoPlaceholder: logoPlaceholder ?? this.logoPlaceholder,
+      outlineMuted: outlineMuted ?? this.outlineMuted,
       space1: space1 ?? this.space1,
       space2: space2 ?? this.space2,
       space3: space3 ?? this.space3,
@@ -317,6 +340,9 @@ class AppTokens extends ThemeExtension<AppTokens> {
       tileGreenText: c(tileGreenText, other.tileGreenText),
       tileTealText: c(tileTealText, other.tileTealText),
       switchOffBorder: c(switchOffBorder, other.switchOffBorder),
+      logoBrandBackground: c(logoBrandBackground, other.logoBrandBackground),
+      logoPlaceholder: c(logoPlaceholder, other.logoPlaceholder),
+      outlineMuted: c(outlineMuted, other.outlineMuted),
       space1: d(space1, other.space1),
       space2: d(space2, other.space2),
       space3: d(space3, other.space3),

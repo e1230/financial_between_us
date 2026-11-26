@@ -16,6 +16,7 @@ dependencies:
     sdk: flutter
   flutter_dotenv: ^6.0.2
   flutter_riverpod: ^3.5.0
+  flutter_svg: ^2.5.1
   freezed_annotation: ^3.1.0
   go_router: ^18.1.4
   google_sign_in: ^7.2.0
@@ -49,6 +50,8 @@ flutter:
     - assets/images/auth/
     # Official Google "G" (Google sign-in branding kit), 1x to 4x.
     - assets/icons/
+    # Payment account logos (brand symbols plus cash and other).
+    - assets/logos/
   fonts:
     # Brand typeface: only used by the logo (emblem rim text and wordmark).
     - family: SpaceGrotesk

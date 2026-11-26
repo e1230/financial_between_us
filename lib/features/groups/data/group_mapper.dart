@@ -65,7 +65,8 @@ abstract final class GroupSecretFields {
   static const String hash = 'hash';
 }
 
-/// Field names of `groups/{groupId}/auditLog/{logId}`.
+/// Field names of `groups/{groupId}/auditLog/{logId}` (and of
+/// `users/{uid}/auditLog/{logId}`, which uses the same shape).
 abstract final class AuditLogFields {
   static const String action = 'action';
   static const String entity = 'entity';
@@ -88,6 +89,9 @@ abstract final class AuditLogFields {
   static const String actionPromote = 'promote';
   static const String actionDemote = 'demote';
   static const String actionUpdate = 'update';
+
+  /// Soft delete (e.g. of a payment account).
+  static const String actionDelete = 'delete';
 
   /// In the `after` of an [actionUpdate]: a new password was set.
   static const String passwordChanged = 'passwordChanged';
