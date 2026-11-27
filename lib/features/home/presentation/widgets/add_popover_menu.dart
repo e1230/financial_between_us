@@ -1,7 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:popover/popover.dart';
 
-import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/theme/user_palette.dart';
 import '../../../../core/widgets/gradient_border_box.dart';
@@ -9,14 +8,17 @@ import '../home_metrics.dart';
 import '../home_strings.dart';
 import '../home_text_styles.dart';
 
-/// Opens the "Agregar" popover above [anchor] and returns the route of the
-/// chosen option, or `null` if it was dismissed.
+/// Options of the "Agregar" popover.
+enum AddChoice { event, movement }
+
+/// Opens the "Agregar" popover above [anchor] and returns the chosen
+/// option, or `null` if it was dismissed.
 // DECISIÓN: popover 0.5 has no border option and its barrier also covers
 // the bottom bar; both accepted (allowed by the handoff).
-Future<String?> showAddPopover(BuildContext anchor) {
+Future<AddChoice?> showAddPopover(BuildContext anchor) {
   final tokens = anchor.tokens;
   final reduceMotion = MediaQuery.disableAnimationsOf(anchor);
-  return showPopover<String>(
+  return showPopover<AddChoice>(
     context: anchor,
     direction: PopoverDirection.top,
     width: HomeMetrics.popoverWidth,
@@ -55,13 +57,13 @@ class _AddMenu extends StatelessWidget {
               icon: Icons.calendar_today_outlined,
               title: HomeStrings.addEvent,
               description: HomeStrings.addEventText,
-              route: AppRoutes.newEvent,
+              choice: AddChoice.event,
             ),
             _Option(
               icon: Icons.swap_horiz,
               title: HomeStrings.addMovement,
               description: HomeStrings.addMovementText,
-              route: AppRoutes.newMovement,
+              choice: AddChoice.movement,
             ),
           ],
         ),
@@ -75,13 +77,13 @@ class _Option extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.description,
-    required this.route,
+    required this.choice,
   });
 
   final IconData icon;
   final String title;
   final String description;
-  final String route;
+  final AddChoice choice;
 
   @override
   Widget build(BuildContext context) {
@@ -89,7 +91,7 @@ class _Option extends StatelessWidget {
     final palette = context.userPalette;
     final styles = HomeTextStyles.of(context);
     return InkWell(
-      onTap: () => Navigator.of(context).pop(route),
+      onTap: () => Navigator.of(context).pop(choice),
       borderRadius: BorderRadius.circular(tokens.radiusCard),
       child: ConstrainedBox(
         constraints: const BoxConstraints(

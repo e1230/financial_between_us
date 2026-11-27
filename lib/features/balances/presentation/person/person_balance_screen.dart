@@ -72,11 +72,36 @@ class _PersonBalanceScreenState extends ConsumerState<PersonBalanceScreen> {
   static const double _headerTop =
       BalancesMetrics.personHeaderTop - BalancesMetrics.headerTopGap * 3;
 
+  /// The next page loads when the end of the list is this close.
+  static const double _loadMoreExtent = 400;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_maybeLoadMore);
+  }
+
   @override
   void dispose() {
     _highlightTimer?.cancel();
     _scroll.dispose();
     super.dispose();
+  }
+
+  /// Infinite scroll of the full history: loads the next page when the end
+  /// is near (or when what is loaded does not fill the screen).
+  void _maybeLoadMore() {
+    if (!_expanded || !_scroll.hasClients) return;
+    final history = ref.read(pairHistoryProvider(_scope, widget.uid)).value;
+    if (history == null ||
+        !history.hasMore ||
+        history.loadingMore ||
+        history.loadMoreFailed) {
+      return;
+    }
+    if (_scroll.position.extentAfter < _loadMoreExtent) {
+      ref.read(pairHistoryProvider(_scope, widget.uid).notifier).loadMore();
+    }
   }
 
   String get _me => ref.read(authStateChangesProvider).value?.uid ?? '';
@@ -166,26 +191,41 @@ class _PersonBalanceScreenState extends ConsumerState<PersonBalanceScreen> {
 
   Future<void> _openMovement(
     LedgerMovement movement,
-    PairLedger ledger,
+    Map<String, LedgerMovement> related,
     UserProfile? other,
   ) async {
     final first = PersonNames.first(other);
+    final me = _me;
     final outcome = await showMovementDetailSheet(
       context,
       movement: movement,
-      me: _me,
+      me: me,
       otherFirstName: first,
-      related: {for (final m in ledger.history) m.id: m},
+      related: related,
     );
     if (!mounted) return;
+    // Older pages are not live: reflect the change there too.
+    final history = ref.read(pairHistoryProvider(_scope, widget.uid).notifier);
     switch (outcome) {
       case MovementSheetOutcome.rejected:
+        history.patch(
+          movement.id,
+          (m) => m.copyWith(
+            status: MovementStatus.rejected,
+            rejectedBy: me,
+            rejectedAt: DateTime.now(),
+          ),
+        );
         _toast(
           movement.isPayment
               ? BalancesStrings.paymentRejected(first)
               : BalancesStrings.debtRejected(first),
         );
       case MovementSheetOutcome.deleted:
+        history.patch(
+          movement.id,
+          (m) => m.copyWith(status: MovementStatus.deleted),
+        );
         _toast(BalancesStrings.movementDeleted);
       case null:
         break;
@@ -241,6 +281,15 @@ class _PersonBalanceScreenState extends ConsumerState<PersonBalanceScreen> {
         g.id: g,
     };
     final dataAsync = ref.watch(personLedgerProvider(_scope, widget.uid));
+    final historyAsync = ref.watch(pairHistoryProvider(_scope, widget.uid));
+    final history = historyAsync.value ?? PairHistoryState.empty;
+    // A short page (or a filter that hides most rows) may not fill the
+    // screen, so the scroll alone would never ask for more.
+    if (_expanded && history.hasMore && !history.loadingMore) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _maybeLoadMore();
+      });
+    }
     final data = dataAsync.value;
     final ledger = data?.ledger;
     final first = PersonNames.first(other);
@@ -254,9 +303,11 @@ class _PersonBalanceScreenState extends ConsumerState<PersonBalanceScreen> {
 
     final Widget body;
     if (data != null && ledger != null) {
-      final related = {for (final m in ledger.history) m.id: m};
+      final related = {
+        for (final m in [...ledger.history, ...history.items]) m.id: m,
+      };
       final entries = [
-        for (final m in ledger.history)
+        for (final m in history.items)
           HistoryEntry.of(
             m,
             me: me,
@@ -281,7 +332,7 @@ class _PersonBalanceScreenState extends ConsumerState<PersonBalanceScreen> {
             pendings: ledger.pendings,
             me: me,
             otherFirst: first,
-            onOpen: (item) => _openMovement(item.source, ledger, other),
+            onOpen: (item) => _openMovement(item.source, related, other),
           ),
           if (ledger.balance < 0)
             PersonAccountsCard(uid: widget.uid, firstName: first),
@@ -294,9 +345,23 @@ class _PersonBalanceScreenState extends ConsumerState<PersonBalanceScreen> {
               filter: _filter,
               onFilter: (f) => setState(() => _filter = f),
               onSeeAll: _seeAll,
-              onOpen: (e) => _openMovement(e.movement, ledger, other),
+              onOpen: (e) => _openMovement(e.movement, related, other),
               highlighted: _highlighted,
               footnote: _footnote(other, groups),
+              isLoading: !historyAsync.hasValue && !historyAsync.hasError,
+              hasError: historyAsync.hasError && !historyAsync.hasValue,
+              hasMore: history.hasMore,
+              loadingMore: history.loadingMore,
+              loadMoreFailed: history.loadMoreFailed,
+              onRetry: () {
+                if (historyAsync.hasValue) {
+                  ref
+                      .read(pairHistoryProvider(_scope, widget.uid).notifier)
+                      .loadMore();
+                } else {
+                  ref.invalidate(pairHistoryProvider(_scope, widget.uid));
+                }
+              },
             ),
           ),
         ],

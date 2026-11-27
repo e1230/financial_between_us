@@ -313,6 +313,46 @@ void main() {
     });
   });
 
+  testWidgets('the full history loads more pages while scrolling', (
+    tester,
+  ) async {
+    final repo = FakeMovementsRepository([
+      for (var i = 0; i < 45; i++)
+        LedgerMovement(
+          id: 'h$i',
+          groupId: sampleGroupId,
+          type: LedgerMovementType.debt,
+          debtorUid: 'dani',
+          creditorUid: sampleMe,
+          amount: 1000,
+          concept: 'Gasto $i',
+          date: DateTime(2026, 11, 1).add(Duration(hours: i)),
+          createdBy: sampleMe,
+          seenBy: const [sampleMe, 'dani'],
+        ),
+    ]);
+    await pumpBalances(tester, location: _person('dani'), movements: repo);
+    // Only the live first page so far.
+    expect(repo.fetchedPages, 0);
+    expect(find.text('Gasto 44'), findsWidgets);
+
+    await tapAndSettle(tester, find.text('Ver todo'));
+    for (
+      var i = 0;
+      i < 6 && find.textContaining('Inicio del historial').evaluate().isEmpty;
+      i++
+    ) {
+      await tester.drag(
+        find.byType(SingleChildScrollView).first,
+        const Offset(0, -3000),
+      );
+      await tester.pumpAndSettle();
+    }
+    expect(repo.fetchedPages, 2);
+    expect(find.text('Gasto 0'), findsWidgets); // pending + history
+    expect(find.textContaining('Inicio del historial'), findsOneWidget);
+  });
+
   testWidgets('no overflow at 130 % text on 360×640', (tester) async {
     await pumpBalances(
       tester,

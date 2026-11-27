@@ -9,11 +9,15 @@ part of 'cloudinary_providers.dart';
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
 /// Cloudinary uploader configured from `.env` (loaded by app startup).
+/// Without it (e.g. in tests) it is unconfigured and every upload fails
+/// with an [ImageUploadException] instead of breaking whoever builds it.
 
 @ProviderFor(cloudinaryImageUploader)
 final cloudinaryImageUploaderProvider = CloudinaryImageUploaderProvider._();
 
 /// Cloudinary uploader configured from `.env` (loaded by app startup).
+/// Without it (e.g. in tests) it is unconfigured and every upload fails
+/// with an [ImageUploadException] instead of breaking whoever builds it.
 
 final class CloudinaryImageUploaderProvider
     extends
@@ -24,6 +28,8 @@ final class CloudinaryImageUploaderProvider
         >
     with $Provider<CloudinaryImageUploader> {
   /// Cloudinary uploader configured from `.env` (loaded by app startup).
+  /// Without it (e.g. in tests) it is unconfigured and every upload fails
+  /// with an [ImageUploadException] instead of breaking whoever builds it.
   CloudinaryImageUploaderProvider._()
     : super(
         from: null,
@@ -59,4 +65,4 @@ final class CloudinaryImageUploaderProvider
 }
 
 String _$cloudinaryImageUploaderHash() =>
-    r'b776ee1dd1e7fb4074359a7a014efa64e6bc9bd6';
+    r'98565587417953538e272d6697797402b04a4a6f';

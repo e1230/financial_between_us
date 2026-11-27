@@ -125,10 +125,12 @@ void main() {
   late FakeGroupsRepository groups;
   late FakeSharedPreferencesAsync prefs;
   late FakeAuthRepository auth;
+  late FakeMovementsRepository movements;
   late GoRouter router;
   String? clipboard;
 
   setUp(() {
+    movements = FakeMovementsRepository(_movements());
     groups = FakeGroupsRepository();
     prefs = FakeSharedPreferencesAsync();
     auth = FakeAuthRepository();
@@ -187,12 +189,14 @@ void main() {
             FakeHomeActivityRepository(clock: () => DateTime(2026, 11, 25, 21)),
           ),
           appVersionProvider.overrideWith((ref) async => '1.0.0'),
-          movementsRepositoryProvider.overrideWithValue(
-            FakeMovementsRepository(_movements()),
-          ),
+          movementsRepositoryProvider.overrideWithValue(movements),
           userProfileRepositoryProvider.overrideWithValue(
             FakeUserProfileRepository(
-              profiles: {'ana': _friend('ana'), 'pedro': _friend('pedro')},
+              profiles: {
+                'ana': _friend('ana'),
+                'pedro': _friend('pedro'),
+                'u2': _friend('beto'),
+              },
             ),
           ),
         ],
@@ -489,7 +493,63 @@ void main() {
       expect(find.text('Agregar movimiento'), findsOneWidget);
 
       await tap(tester, find.text('Agregar movimiento'));
-      expect(find.text('Agregar movimiento (pendiente)'), findsOneWidget);
+      expect(find.text('Alguien te pagó'), findsOneWidget);
+      expect(find.text('Alguien te debe o le debes'), findsOneWidget);
+
+      // "Pago": only people the user owes, then the payment sheet.
+      await tap(tester, find.text('Le pagaste a alguien'));
+      expect(find.text('¿A quién le pagaste?'), findsOneWidget);
+      expect(find.text(r'@pedro · le debes $ 41.500'), findsOneWidget);
+      await tap(tester, find.text('pedro'));
+      expect(find.text('Le pagaste a pedro'), findsOneWidget);
+      await tap(tester, find.text(r'Registrar pago · $ 41.500'));
+
+      final payment = movements.movementsOf('a').last;
+      expect(payment.isPayment, isTrue);
+      expect(payment.debtorUid, _uid);
+      expect(payment.creditorUid, 'pedro');
+      expect(payment.appliedTo.single.targetId, 'bbc');
+      expect(find.text(r'Pago registrado · $ 41.500'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('"Agregar ingreso" only offers people who owe the user', (
+      tester,
+    ) async {
+      await pumpHome(tester);
+      await tap(tester, find.text('Agregar ingreso'));
+      expect(find.text('¿Quién te pagó?'), findsOneWidget);
+      expect(find.text('Nadie te debe en Primer grupo.'), findsOneWidget);
+    });
+
+    testWidgets('"Agregar deuda" registers a debt with a member', (
+      tester,
+    ) async {
+      await pumpHome(tester);
+      await tap(tester, find.text('Agregar deuda'));
+      expect(find.text('¿Con quién es la deuda?'), findsOneWidget);
+      expect(find.text('En Primer grupo'), findsOneWidget);
+      await tap(tester, find.text('beto'));
+      expect(find.text('Con beto'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField).first, '12000');
+      await tester.enterText(find.byType(TextField).last, 'Almuerzo');
+      await tester.pumpAndSettle();
+      await tap(
+        tester,
+        find.widgetWithText(FbuPrimaryButton, 'Registrar deuda'),
+      );
+
+      final debt = movements.movementsOf('a').last;
+      expect(debt.isDebt, isTrue);
+      expect(debt.debtorUid, 'u2');
+      expect(debt.creditorUid, _uid);
+      expect(debt.amount, 12000);
+      expect(debt.concept, 'Almuerzo');
+      expect(find.text('Deuda registrada'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
     });
 
     testWidgets('back from another tab returns to Inicio', (tester) async {

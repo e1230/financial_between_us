@@ -61,6 +61,7 @@ groups/{groupId}                 name, code, ownerUid, admins: [uid], requiresAp
   outings/{outingId}             fecha, lugar, totalCOP, propinaPct, fotoUrl, createdBy
     items/{itemId}               descripción, valorCOP, consumidores {uid: partes}
   movements/{mid}                type (debt|payment), debtorUid, creditorUid, participants [debtor, creditor],
+                                 pairKey (los dos uid ordenados, unidos con _),
                                  amount (int), kind? (event|direct), eventId?, eventName?, concept,
                                  appliedTo? [{targetId, amount}], account? {type, name, reference},
                                  note?, attachment? {url, width, height, bytes}, date, createdBy, createdAt,
@@ -78,7 +79,9 @@ groups/{groupId}                 name, code, ownerUid, admins: [uid], requiresAp
 - Compartir texto usa el canal propio `fbu/share` (`MainActivity.kt`, `ACTION_SEND`); no hay `share_plus`.
 - `movements` es el libro único de saldos (reemplaza a `payments`/`settlements`). Un pago o una deuda **se aplica al saldo al registrarse**, sin confirmación. Solo el destinatario (la parte que no lo registró) puede **rechazarlo**, una vez y con motivo; solo su autor puede **eliminarlo** (soft delete: `status: deleted` + `deletedAt`); nadie lo edita. Crear, rechazar y eliminar escriben en `groups/{gid}/auditLog`; `seenBy` (punto de "nuevo") no se audita.
 - El módulo Eventos, al dividir una cuenta, escribirá una deuda `kind: event` por participante (con `eventId`/`eventName`); mientras tanto `NoGroupEventsRepository` no ofrece eventos.
-- Los saldos se calculan en la app (`PairLedger`) a partir de los movimientos activos del grupo: cada pago liquida sus `appliedTo` (del pendiente más antiguo al más reciente), lo que ya no puede aplicar va a los demás pendientes de esa dirección y el sobrante queda como "Saldo a favor". `balancesWith`/`netBalance` usan `debtsFromMovements`. La app lee todos los movimientos del grupo (sin índice compuesto).
+- Los saldos se calculan en la app (`PairLedger`) a partir de los movimientos activos del grupo: cada pago liquida sus `appliedTo` (del pendiente más antiguo al más reciente), lo que ya no puede aplicar va a los demás pendientes de esa dirección y el sobrante queda como "Saldo a favor". `balancesWith`/`netBalance` usan `debtsFromMovements`. Para el saldo la app escucha solo los movimientos **activos** del grupo (`status == active`).
+- Nada más se lee completo: el historial de una persona va por páginas de 20 (`pairHistoryProvider`, infinite scroll; la primera página en vivo y las anteriores con `startAfterDocument`), por `pairKey` en un grupo o con collection group (`participants array-contains` + `pairKey`) en "Todos los grupos"; "Últimos movimientos" lee los 10 más recientes del usuario. Los índices están en `firestore.indexes.json` (se publican con `firebase deploy --only firestore:indexes`).
+- En el Home, "Agregar ingreso", "Agregar pago", "Agregar deuda" (y "Agregar movimiento" del +) piden primero la persona del grupo activo (`showPersonPicker`: ingreso solo ofrece a quien te debe y pago a quien le debes) y luego abren los mismos sheets de Saldos (`startQuickMovement`).
 - "Últimos movimientos" del Home sale de los movimientos reales; la gráfica del Home sigue con `FakeHomeActivityRepository` hasta que existan los eventos.
 
 ## Reglas de negocio (no negociables)

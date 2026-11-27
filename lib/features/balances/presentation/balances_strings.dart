@@ -114,6 +114,10 @@ abstract final class BalancesStrings {
   static String historyStart(String firstName, String group, String date) =>
       'Inicio del historial · $firstName entró a $group el $date';
   static const String historyStartShort = 'Inicio del historial';
+  static const String loadingHistory = 'Cargando movimientos';
+  static const String loadingMore = 'Cargando más movimientos';
+  static const String historyError = 'No pudimos cargar los movimientos.';
+  static const String loadMoreError = 'No pudimos cargar más movimientos.';
   static const String registerDebt = 'Registrar deuda';
   static const String registerPayment = 'Registrar pago';
   static const String newDot = 'nuevo';
@@ -248,6 +252,26 @@ abstract final class BalancesStrings {
   static const String deleteText =
       'Deja de contar para el saldo y queda en el registro del grupo.';
   static const String movementDeleted = 'Movimiento eliminado';
+
+  // Quick movements (Home)
+  static const String addMovement = 'Agregar movimiento';
+  static const String income = 'Ingreso';
+  static const String incomeText = 'Alguien te pagó';
+  static const String paymentText = 'Le pagaste a alguien';
+  static const String debt = 'Deuda';
+  static const String debtText = 'Alguien te debe o le debes';
+  static const String whoPaidYou = '¿Quién te pagó?';
+  static const String whoDidYouPay = '¿A quién le pagaste?';
+  static const String whoIsTheDebtWith = '¿Con quién es la deuda?';
+  static String inGroup(String group) => 'En $group';
+  static String nobodyOwesYou(String group) => 'Nadie te debe en $group.';
+  static String youOweNobody(String group) => 'No le debes a nadie en $group.';
+  static String noOtherMembers(String group) =>
+      'Aún no hay más miembros en $group.';
+  static String owesYouAmount(int amount) =>
+      'te debe ${MoneyFormat.format(amount)}';
+  static String youOweAmount(int amount) =>
+      'le debes ${MoneyFormat.format(amount)}';
 
   // Failures
   static const String networkError =

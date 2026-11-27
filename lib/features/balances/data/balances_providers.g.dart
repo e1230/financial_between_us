@@ -415,6 +415,98 @@ final class GroupMovementsFamily extends $Family
   String toString() => r'groupMovementsProvider';
 }
 
+/// Live newest movements of [groupId] where the user is a party, read with
+/// a limit instead of the whole group.
+
+@ProviderFor(recentGroupMovements)
+final recentGroupMovementsProvider = RecentGroupMovementsFamily._();
+
+/// Live newest movements of [groupId] where the user is a party, read with
+/// a limit instead of the whole group.
+
+final class RecentGroupMovementsProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<List<LedgerMovement>>,
+          List<LedgerMovement>,
+          Stream<List<LedgerMovement>>
+        >
+    with
+        $FutureModifier<List<LedgerMovement>>,
+        $StreamProvider<List<LedgerMovement>> {
+  /// Live newest movements of [groupId] where the user is a party, read with
+  /// a limit instead of the whole group.
+  RecentGroupMovementsProvider._({
+    required RecentGroupMovementsFamily super.from,
+    required String super.argument,
+  }) : super(
+         retry: _noRetry,
+         name: r'recentGroupMovementsProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$recentGroupMovementsHash();
+
+  @override
+  String toString() {
+    return r'recentGroupMovementsProvider'
+        ''
+        '($argument)';
+  }
+
+  @$internal
+  @override
+  $StreamProviderElement<List<LedgerMovement>> $createElement(
+    $ProviderPointer pointer,
+  ) => $StreamProviderElement(pointer);
+
+  @override
+  Stream<List<LedgerMovement>> create(Ref ref) {
+    final argument = this.argument as String;
+    return recentGroupMovements(ref, argument);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is RecentGroupMovementsProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$recentGroupMovementsHash() =>
+    r'd31046cac49b3fe92121eb01d44e0cecea6dee2e';
+
+/// Live newest movements of [groupId] where the user is a party, read with
+/// a limit instead of the whole group.
+
+final class RecentGroupMovementsFamily extends $Family
+    with $FunctionalFamilyOverride<Stream<List<LedgerMovement>>, String> {
+  RecentGroupMovementsFamily._()
+    : super(
+        retry: _noRetry,
+        name: r'recentGroupMovementsProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  /// Live newest movements of [groupId] where the user is a party, read with
+  /// a limit instead of the whole group.
+
+  RecentGroupMovementsProvider call(String groupId) =>
+      RecentGroupMovementsProvider._(argument: groupId, from: this);
+
+  @override
+  String toString() => r'recentGroupMovementsProvider';
+}
+
 /// What is still owed between the people of [groupId] (see
 /// [debtsFromMovements]).
 
@@ -1005,4 +1097,123 @@ final class PersonLedgerFamily extends $Family
 
   @override
   String toString() => r'personLedgerProvider';
+}
+
+/// The history of the signed-in user with [otherUid] in [scope], loaded a
+/// page at a time ([historyPageSize] movements) so the server only sends
+/// what the user scrolls to. The newest page stays live (new, rejected and
+/// deleted movements show up at once); older pages are read once.
+
+@ProviderFor(PairHistory)
+final pairHistoryProvider = PairHistoryFamily._();
+
+/// The history of the signed-in user with [otherUid] in [scope], loaded a
+/// page at a time ([historyPageSize] movements) so the server only sends
+/// what the user scrolls to. The newest page stays live (new, rejected and
+/// deleted movements show up at once); older pages are read once.
+final class PairHistoryProvider
+    extends $StreamNotifierProvider<PairHistory, PairHistoryState> {
+  /// The history of the signed-in user with [otherUid] in [scope], loaded a
+  /// page at a time ([historyPageSize] movements) so the server only sends
+  /// what the user scrolls to. The newest page stays live (new, rejected and
+  /// deleted movements show up at once); older pages are read once.
+  PairHistoryProvider._({
+    required PairHistoryFamily super.from,
+    required (BalancesScope, String) super.argument,
+  }) : super(
+         retry: _noRetry,
+         name: r'pairHistoryProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$pairHistoryHash();
+
+  @override
+  String toString() {
+    return r'pairHistoryProvider'
+        ''
+        '$argument';
+  }
+
+  @$internal
+  @override
+  PairHistory create() => PairHistory();
+
+  @override
+  bool operator ==(Object other) {
+    return other is PairHistoryProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$pairHistoryHash() => r'969b5dd399511859a0fcde1af418d2b418c31015';
+
+/// The history of the signed-in user with [otherUid] in [scope], loaded a
+/// page at a time ([historyPageSize] movements) so the server only sends
+/// what the user scrolls to. The newest page stays live (new, rejected and
+/// deleted movements show up at once); older pages are read once.
+
+final class PairHistoryFamily extends $Family
+    with
+        $ClassFamilyOverride<
+          PairHistory,
+          AsyncValue<PairHistoryState>,
+          PairHistoryState,
+          Stream<PairHistoryState>,
+          (BalancesScope, String)
+        > {
+  PairHistoryFamily._()
+    : super(
+        retry: _noRetry,
+        name: r'pairHistoryProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  /// The history of the signed-in user with [otherUid] in [scope], loaded a
+  /// page at a time ([historyPageSize] movements) so the server only sends
+  /// what the user scrolls to. The newest page stays live (new, rejected and
+  /// deleted movements show up at once); older pages are read once.
+
+  PairHistoryProvider call(BalancesScope scope, String otherUid) =>
+      PairHistoryProvider._(argument: (scope, otherUid), from: this);
+
+  @override
+  String toString() => r'pairHistoryProvider';
+}
+
+/// The history of the signed-in user with [otherUid] in [scope], loaded a
+/// page at a time ([historyPageSize] movements) so the server only sends
+/// what the user scrolls to. The newest page stays live (new, rejected and
+/// deleted movements show up at once); older pages are read once.
+
+abstract class _$PairHistory extends $StreamNotifier<PairHistoryState> {
+  late final _$args = ref.$arg as (BalancesScope, String);
+  BalancesScope get scope => _$args.$1;
+  String get otherUid => _$args.$2;
+
+  Stream<PairHistoryState> build(BalancesScope scope, String otherUid);
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref =
+        this.ref as $Ref<AsyncValue<PairHistoryState>, PairHistoryState>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<AsyncValue<PairHistoryState>, PairHistoryState>,
+              AsyncValue<PairHistoryState>,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, () => build(_$args.$1, _$args.$2));
+  }
 }

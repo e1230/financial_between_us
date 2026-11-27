@@ -12,7 +12,9 @@ import 'history_row.dart';
 
 /// "HISTORIAL". The short view shows the latest [shortCount] movements and
 /// "Ver todo"; the full one adds the filters (Todo, Eventos, Directos,
-/// Pagos), groups the rows by month and ends with [footnote].
+/// Pagos), groups the rows by month and grows as the user scrolls (the
+/// screen loads the next page). It ends with a spinner while a page loads,
+/// "Reintentar" if it failed, or [footnote] once everything is loaded.
 class HistorySection extends StatelessWidget {
   const HistorySection({
     super.key,
@@ -24,6 +26,12 @@ class HistorySection extends StatelessWidget {
     required this.onOpen,
     required this.highlighted,
     required this.footnote,
+    required this.onRetry,
+    this.isLoading = false,
+    this.hasError = false,
+    this.hasMore = false,
+    this.loadingMore = false,
+    this.loadMoreFailed = false,
   });
 
   /// Newest first.
@@ -37,8 +45,66 @@ class HistorySection extends StatelessWidget {
   /// Ids of movements just registered (highlighted for 2 s).
   final Set<String> highlighted;
   final String footnote;
+  final VoidCallback onRetry;
+
+  /// The first page is loading.
+  final bool isLoading;
+
+  /// The first page failed.
+  final bool hasError;
+
+  /// There may be older movements to load.
+  final bool hasMore;
+  final bool loadingMore;
+  final bool loadMoreFailed;
 
   static const int shortCount = 3;
+  static const double _spinnerSize = 20;
+  static const double _spinnerStroke = 2;
+
+  Widget _spinner(BuildContext context, String label) {
+    final tokens = context.tokens;
+    return Semantics(
+      label: label,
+      liveRegion: true,
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: tokens.space2),
+        child: Center(
+          child: SizedBox.square(
+            dimension: _spinnerSize,
+            child: CircularProgressIndicator(
+              strokeWidth: _spinnerStroke,
+              color: tokens.accent,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _retry(BuildContext context, String message) {
+    final styles = BalancesTextStyles.of(context);
+    return Padding(
+      padding: EdgeInsets.only(top: context.tokens.space1),
+      child: Row(
+        children: [
+          Expanded(
+            child: Semantics(
+              liveRegion: true,
+              child: Text(message, style: styles.body),
+            ),
+          ),
+          TextButton(
+            onPressed: onRetry,
+            style: TextButton.styleFrom(
+              minimumSize: const Size(0, BalancesMetrics.touchTarget),
+            ),
+            child: Text(BalancesStrings.retry, style: styles.link),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +118,7 @@ class HistorySection extends StatelessWidget {
         children: [
           SectionLabel(
             BalancesStrings.history,
-            trailing: entries.length > shortCount
+            trailing: entries.length > shortCount || hasMore
                 ? TextButton(
                     onPressed: onSeeAll,
                     style: TextButton.styleFrom(
@@ -62,7 +128,11 @@ class HistorySection extends StatelessWidget {
                   )
                 : null,
           ),
-          if (shown.isEmpty)
+          if (isLoading)
+            _spinner(context, BalancesStrings.loadingHistory)
+          else if (hasError)
+            _retry(context, BalancesStrings.historyError)
+          else if (shown.isEmpty)
             Text(BalancesStrings.noHistory, style: styles.body)
           else
             ..._rows(context, shown),
@@ -117,14 +187,20 @@ class HistorySection extends StatelessWidget {
             ],
           ),
         ),
-        if (filtered.isEmpty)
+        if (filtered.isEmpty && !hasMore && !loadingMore)
           Padding(
             padding: EdgeInsets.only(top: tokens.space2),
             child: Text(BalancesStrings.noHistory, style: styles.body),
           ),
         ...children,
-        SizedBox(height: tokens.space3),
-        Text(footnote, textAlign: TextAlign.center, style: styles.footnote),
+        if (loadingMore)
+          _spinner(context, BalancesStrings.loadingMore)
+        else if (loadMoreFailed)
+          _retry(context, BalancesStrings.loadMoreError)
+        else if (!hasMore) ...[
+          SizedBox(height: tokens.space3),
+          Text(footnote, textAlign: TextAlign.center, style: styles.footnote),
+        ],
       ],
     );
   }

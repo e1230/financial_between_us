@@ -30,7 +30,9 @@ Future<List<Movement>> recentMovements(Ref ref) async {
   final group = await ref.watch(activeGroupProvider.future);
   final profile = await ref.watch(currentUserProfileProvider.future);
   if (group == null || profile == null) return const [];
-  final movements = await ref.watch(groupMovementsProvider(group.id).future);
+  final movements = await ref.watch(
+    recentGroupMovementsProvider(group.id).future,
+  );
   final others = {
     for (final m in latestActiveOf(me: profile.uid, movements: movements))
       m.otherParty(profile.uid),

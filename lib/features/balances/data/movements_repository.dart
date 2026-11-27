@@ -8,11 +8,64 @@ import '../domain/ledger_movement.dart';
 import '../domain/movement_failure.dart';
 import 'movement_mapper.dart';
 
+/// A page of movements, newest first.
+final class MovementPage {
+  const MovementPage({
+    required this.items,
+    required this.cursor,
+    required this.hasMore,
+  });
+
+  static const MovementPage empty = MovementPage(
+    items: [],
+    cursor: null,
+    hasMore: false,
+  );
+
+  final List<LedgerMovement> items;
+
+  /// Where the next page starts (opaque to everything but the repository);
+  /// `null` when the page is empty.
+  final Object? cursor;
+
+  /// There may be older movements.
+  final bool hasMore;
+}
+
 /// Debts and payments of the groups: the ledger every balance is computed
 /// from. Every method throws a [MovementFailure] on error.
 abstract interface class MovementsRepository {
-  /// Live movements of [groupId] (any status), in no particular order.
+  /// Live **active** movements of [groupId], in no particular order: what
+  /// the balances need. Rejected and deleted ones only show up in the
+  /// paged history.
   Stream<List<LedgerMovement>> watchGroup(String groupId);
+
+  /// Live newest [limit] movements (any status) between [me] and [other],
+  /// in [groupId] or, when `null`, in every group: the first page of a
+  /// history.
+  Stream<MovementPage> watchPairHistory({
+    required String me,
+    required String other,
+    String? groupId,
+    required int limit,
+  });
+
+  /// The [limit] movements of the same history older than [after].
+  Future<MovementPage> fetchPairHistory({
+    required String me,
+    required String other,
+    String? groupId,
+    required int limit,
+    required Object after,
+  });
+
+  /// Live newest [limit] movements (any status) of [groupId] where [me] is
+  /// a party ("Últimos movimientos").
+  Stream<List<LedgerMovement>> watchRecent({
+    required String groupId,
+    required String me,
+    required int limit,
+  });
 
   /// Saves the new [payments] together (a payment from "Todos los grupos"
   /// becomes one movement per group). Their ids are ignored; returns the
@@ -40,12 +93,12 @@ abstract interface class MovementsRepository {
   });
 }
 
-// DECISIÓN: the app reads every movement of the group (the rules let any
-// active member do it) instead of only the user's, so the group detail can
-// tell whether a member is even with everybody and no composite index is
-// needed. A group has at most 10 people and a few hundred movements.
+// DECISIÓN: balances need every active movement of the group (the rules
+// let any active member read them), so the group detail can tell whether a
+// member is even with everybody. Rejected and deleted ones are not read for
+// that; the histories are paged instead.
 // TODO: move the computation to a Cloud Function that keeps
-// `groups/{gid}/balances/{uidA_uidB}` if the volume grows.
+// `groups/{gid}/balances/{uidA_uidB}` if the volume grows (Blaze plan).
 class FirestoreMovementsRepository implements MovementsRepository {
   FirestoreMovementsRepository(this._firestore);
 
@@ -63,6 +116,7 @@ class FirestoreMovementsRepository implements MovementsRepository {
   @override
   Stream<List<LedgerMovement>> watchGroup(String groupId) =>
       _movements(groupId)
+          .where(MovementFields.status, isEqualTo: MovementStatus.active.wire)
           .snapshots()
           .map(
             (snapshot) => [
@@ -70,6 +124,94 @@ class FirestoreMovementsRepository implements MovementsRepository {
                 ?MovementMapper.fromFirestore(groupId, doc.id, doc.data()),
             ],
           )
+          .handleError((Object error, StackTrace stackTrace) {
+            throw _map(error, stackTrace);
+          });
+
+  /// The history of [me] and [other]: in [groupId] (index `pairKey` +
+  /// `date`) or across every group with a collection group query that the
+  /// rules allow only on the user's own movements (index `participants` +
+  /// `pairKey` + `date`).
+  Query<Map<String, dynamic>> _pairQuery(
+    String me,
+    String other,
+    String? groupId,
+  ) {
+    final key = pairKeyOf(me, other);
+    final Query<Map<String, dynamic>> base = groupId == null
+        ? _firestore
+              .collectionGroup(FirestoreCollections.groupMovements)
+              .where(MovementFields.participants, arrayContains: me)
+        : _movements(groupId);
+    return base
+        .where(MovementFields.pairKey, isEqualTo: key)
+        .orderBy(MovementFields.date, descending: true);
+  }
+
+  static MovementPage _page(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+    int limit,
+  ) {
+    final docs = snapshot.docs;
+    return MovementPage(
+      items: [
+        for (final doc in docs)
+          ?MovementMapper.fromFirestore(
+            doc.reference.parent.parent?.id ?? '',
+            doc.id,
+            doc.data(),
+          ),
+      ],
+      cursor: docs.isEmpty ? null : docs.last,
+      hasMore: docs.length >= limit,
+    );
+  }
+
+  @override
+  Stream<MovementPage> watchPairHistory({
+    required String me,
+    required String other,
+    String? groupId,
+    required int limit,
+  }) => _pairQuery(me, other, groupId)
+      .limit(limit)
+      .snapshots()
+      .map((snapshot) => _page(snapshot, limit))
+      .handleError((Object error, StackTrace stackTrace) {
+        throw _map(error, stackTrace);
+      });
+
+  @override
+  Future<MovementPage> fetchPairHistory({
+    required String me,
+    required String other,
+    String? groupId,
+    required int limit,
+    required Object after,
+  }) => _guard(() async {
+    if (after is! DocumentSnapshot) {
+      throw ArgumentError.value(after, 'after', 'not a cursor of this query');
+    }
+    final snapshot = await _pairQuery(
+      me,
+      other,
+      groupId,
+    ).startAfterDocument(after).limit(limit).get();
+    return _page(snapshot, limit);
+  });
+
+  @override
+  Stream<List<LedgerMovement>> watchRecent({
+    required String groupId,
+    required String me,
+    required int limit,
+  }) =>
+      _movements(groupId)
+          .where(MovementFields.participants, arrayContains: me)
+          .orderBy(MovementFields.date, descending: true)
+          .limit(limit)
+          .snapshots()
+          .map((snapshot) => _page(snapshot, limit).items)
           .handleError((Object error, StackTrace stackTrace) {
             throw _map(error, stackTrace);
           });

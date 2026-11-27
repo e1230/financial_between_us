@@ -190,6 +190,9 @@ abstract class LedgerMovement with _$LedgerMovement {
   /// Both parties, for `array-contains` queries.
   List<String> get participants => [debtorUid, creditorUid];
 
+  /// The pair of parties, for the history queries (see [pairKeyOf]).
+  String get pairKey => pairKeyOf(debtorUid, creditorUid);
+
   bool involves(String uid) => uid == debtorUid || uid == creditorUid;
 
   /// The party that is not [uid].
@@ -223,3 +226,8 @@ int compareChronologically(LedgerMovement a, LedgerMovement b) {
   if (byCreation != 0) return byCreation;
   return a.id.compareTo(b.id);
 }
+
+/// Key of the pair [a]–[b], the same in both orders: the two uids sorted
+/// and joined with `_` (Firebase uids never contain it).
+String pairKeyOf(String a, String b) =>
+    a.compareTo(b) < 0 ? '${a}_$b' : '${b}_$a';

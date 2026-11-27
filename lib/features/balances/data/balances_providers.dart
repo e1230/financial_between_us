@@ -61,6 +61,27 @@ Stream<List<LedgerMovement>> groupMovements(Ref ref, String groupId) async* {
   yield* ref.watch(movementsRepositoryProvider).watchGroup(groupId);
 }
 
+/// How many movements "Últimos movimientos" reads: a few more than it shows,
+/// since rejected and deleted ones are skipped.
+const int recentReadLimit = 10;
+
+/// Live newest movements of [groupId] where the user is a party, read with
+/// a limit instead of the whole group.
+@Riverpod(retry: _noRetry)
+Stream<List<LedgerMovement>> recentGroupMovements(
+  Ref ref,
+  String groupId,
+) async* {
+  final user = await ref.watch(authStateChangesProvider.future);
+  if (user == null) {
+    yield const [];
+    return;
+  }
+  yield* ref
+      .watch(movementsRepositoryProvider)
+      .watchRecent(groupId: groupId, me: user.uid, limit: recentReadLimit);
+}
+
 /// What is still owed between the people of [groupId] (see
 /// [debtsFromMovements]).
 @riverpod
@@ -157,3 +178,138 @@ Future<PersonLedger> personLedger(
 }
 
 Duration? _noRetry(int retryCount, Object error) => null;
+
+/// Movements per page of a history.
+const int historyPageSize = 20;
+
+/// The loaded part of the history of a person.
+final class PairHistoryState {
+  const PairHistoryState({
+    required this.items,
+    required this.hasMore,
+    this.loadingMore = false,
+    this.loadMoreFailed = false,
+  });
+
+  static const PairHistoryState empty = PairHistoryState(
+    items: [],
+    hasMore: false,
+  );
+
+  /// Loaded movements without the deleted ones, newest first.
+  final List<LedgerMovement> items;
+
+  /// There may be older movements to load.
+  final bool hasMore;
+  final bool loadingMore;
+
+  /// The last [PairHistory.loadMore] failed (offer "Reintentar").
+  final bool loadMoreFailed;
+}
+
+/// The history of the signed-in user with [otherUid] in [scope], loaded a
+/// page at a time ([historyPageSize] movements) so the server only sends
+/// what the user scrolls to. The newest page stays live (new, rejected and
+/// deleted movements show up at once); older pages are read once.
+@Riverpod(retry: _noRetry)
+class PairHistory extends _$PairHistory {
+  MovementPage _live = MovementPage.empty;
+
+  /// Movements older than the live page: loaded pages plus the ones a new
+  /// movement pushed out of it.
+  final Map<String, LedgerMovement> _older = {};
+  Object? _olderCursor;
+  bool _olderHasMore = true;
+  bool _loadingMore = false;
+  bool _loadMoreFailed = false;
+  String _me = '';
+
+  MovementsRepository get _repository => ref.read(movementsRepositoryProvider);
+
+  @override
+  Stream<PairHistoryState> build(BalancesScope scope, String otherUid) async* {
+    _live = MovementPage.empty;
+    _older.clear();
+    _olderCursor = null;
+    _olderHasMore = true;
+    _loadingMore = false;
+    _loadMoreFailed = false;
+    final user = await ref.watch(authStateChangesProvider.future);
+    if (user == null) {
+      yield PairHistoryState.empty;
+      return;
+    }
+    _me = user.uid;
+    final pages = ref
+        .watch(movementsRepositoryProvider)
+        .watchPairHistory(
+          me: _me,
+          other: otherUid,
+          groupId: scope.groupId,
+          limit: historyPageSize,
+        );
+    await for (final page in pages) {
+      final ids = {for (final m in page.items) m.id};
+      for (final m in _live.items) {
+        if (!ids.contains(m.id)) _older[m.id] = m;
+      }
+      for (final id in ids) {
+        _older.remove(id);
+      }
+      _live = page;
+      yield _compose();
+    }
+  }
+
+  PairHistoryState _compose() {
+    final items = [
+      for (final m in [..._live.items, ..._older.values])
+        if (!m.isDeleted) m,
+    ]..sort((a, b) => compareChronologically(b, a));
+    return PairHistoryState(
+      items: items,
+      hasMore: _olderCursor == null ? _live.hasMore : _olderHasMore,
+      loadingMore: _loadingMore,
+      loadMoreFailed: _loadMoreFailed,
+    );
+  }
+
+  /// Loads the next older page, if there is one and none is loading.
+  Future<void> loadMore() async {
+    if (_loadingMore || !state.hasValue || !state.requireValue.hasMore) return;
+    final cursor = _olderCursor ?? _live.cursor;
+    if (cursor == null) return;
+    _loadingMore = true;
+    _loadMoreFailed = false;
+    state = AsyncData(_compose());
+    try {
+      final page = await _repository.fetchPairHistory(
+        me: _me,
+        other: otherUid,
+        groupId: scope.groupId,
+        limit: historyPageSize,
+        after: cursor,
+      );
+      final live = {for (final m in _live.items) m.id};
+      for (final m in page.items) {
+        if (!live.contains(m.id)) _older[m.id] = m;
+      }
+      _olderCursor = page.cursor ?? cursor;
+      _olderHasMore = page.hasMore;
+    } catch (_) {
+      _loadMoreFailed = true;
+    } finally {
+      _loadingMore = false;
+      if (ref.mounted) state = AsyncData(_compose());
+    }
+  }
+
+  /// Applies [change] to the loaded movement [id] of an older page (the
+  /// live page updates by itself), e.g. after rejecting or deleting it.
+  void patch(String id, LedgerMovement Function(LedgerMovement) change) {
+    final m = _older[id];
+    if (m == null) return;
+    _older[id] = change(m);
+    state = AsyncData(_compose());
+  }
+}

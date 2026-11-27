@@ -1,8 +1,11 @@
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/theme/user_palette.dart';
+import '../../../balances/presentation/quick/movement_kind_sheet.dart';
+import '../../../balances/presentation/quick/quick_movement.dart';
 import '../home_metrics.dart';
 import '../home_strings.dart';
 import 'add_popover_menu.dart';
@@ -23,10 +26,18 @@ class _AddButtonState extends State<AddButton> {
 
   Future<void> _toggle(BuildContext anchor) async {
     setState(() => _open = true);
-    final route = await showAddPopover(anchor);
+    final choice = await showAddPopover(anchor);
     if (!mounted) return;
     setState(() => _open = false);
-    if (route != null) await context.push(route);
+    switch (choice) {
+      case AddChoice.event:
+        await context.push(AppRoutes.newEvent);
+      case AddChoice.movement:
+        final kind = await showMovementKindSheet(context);
+        if (kind != null && mounted) await startQuickMovement(context, kind);
+      case null:
+        break;
+    }
   }
 
   @override

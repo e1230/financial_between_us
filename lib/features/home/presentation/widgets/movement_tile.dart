@@ -66,7 +66,7 @@ class MovementTile extends StatelessWidget {
 
     final participants = m.participants;
     final detail = [
-      m.place,
+      if (m.place.isNotEmpty) m.place,
       RelativeDateFormat.format(m.createdAt, now: now),
       if (m.type == MovementType.payment &&
           participants != null &&

@@ -157,7 +157,7 @@ final class RecentMovementsProvider
   }
 }
 
-String _$recentMovementsHash() => r'd7fd57f3a6d69f9f5081c14c12aec7a0d66d28fb';
+String _$recentMovementsHash() => r'659345515803fde16bb544af4b9d2bfed731f43d';
 
 /// Chart series of the active group in the selected period.
 

@@ -12,6 +12,10 @@ abstract final class MovementFields {
 
   /// `[debtorUid, creditorUid]`, for `array-contains` queries and rules.
   static const String participants = 'participants';
+
+  /// Both uids sorted and joined with `_` (see `pairKeyOf`), for the
+  /// history of a pair.
+  static const String pairKey = 'pairKey';
   static const String amount = 'amount';
   static const String kind = 'kind';
   static const String eventId = 'eventId';
@@ -147,6 +151,7 @@ abstract final class MovementMapper {
   static Map<String, Object?> create(LedgerMovement movement) => {
     ...content(movement),
     MovementFields.participants: movement.participants,
+    MovementFields.pairKey: movement.pairKey,
     MovementFields.createdBy: movement.createdBy,
     MovementFields.createdAt: FieldValue.serverTimestamp(),
     MovementFields.status: MovementStatus.active.wire,

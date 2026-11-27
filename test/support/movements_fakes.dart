@@ -30,10 +30,82 @@ class FakeMovementsRepository implements MovementsRepository {
   List<LedgerMovement> movementsOf(String groupId) =>
       List.unmodifiable(_byGroup[groupId] ?? const []);
 
+  /// Pages read with [fetchPairHistory] (what the server would send).
+  int fetchedPages = 0;
+
+  List<LedgerMovement> _active(String groupId) => [
+    for (final m in movementsOf(groupId))
+      if (m.isActive) m,
+  ];
+
   @override
   Stream<List<LedgerMovement>> watchGroup(String groupId) async* {
-    yield movementsOf(groupId);
-    yield* _changes.stream.map((_) => movementsOf(groupId));
+    yield _active(groupId);
+    yield* _changes.stream.map((_) => _active(groupId));
+  }
+
+  /// Movements of the pair, newest first, like the Firestore query.
+  List<LedgerMovement> _pair(String me, String other, String? groupId) {
+    final key = pairKeyOf(me, other);
+    return [
+      for (final entry in _byGroup.entries)
+        if (groupId == null || entry.key == groupId)
+          for (final m in entry.value)
+            if (m.pairKey == key) m,
+    ]..sort((a, b) {
+      final byDate = b.date.compareTo(a.date);
+      return byDate != 0 ? byDate : b.id.compareTo(a.id);
+    });
+  }
+
+  MovementPage _pageFrom(List<LedgerMovement> all, int start, int limit) {
+    final items = all.skip(start).take(limit).toList();
+    return MovementPage(
+      items: items,
+      cursor: items.isEmpty ? null : items.last.id,
+      hasMore: items.length >= limit,
+    );
+  }
+
+  @override
+  Stream<MovementPage> watchPairHistory({
+    required String me,
+    required String other,
+    String? groupId,
+    required int limit,
+  }) async* {
+    yield _pageFrom(_pair(me, other, groupId), 0, limit);
+    yield* _changes.stream.map(
+      (_) => _pageFrom(_pair(me, other, groupId), 0, limit),
+    );
+  }
+
+  @override
+  Future<MovementPage> fetchPairHistory({
+    required String me,
+    required String other,
+    String? groupId,
+    required int limit,
+    required Object after,
+  }) async {
+    fetchedPages++;
+    final all = _pair(me, other, groupId);
+    final start = all.indexWhere((m) => m.id == after) + 1;
+    return _pageFrom(all, start, limit);
+  }
+
+  @override
+  Stream<List<LedgerMovement>> watchRecent({
+    required String groupId,
+    required String me,
+    required int limit,
+  }) async* {
+    List<LedgerMovement> recent() => ([
+      for (final m in movementsOf(groupId))
+        if (m.involves(me)) m,
+    ]..sort((a, b) => b.date.compareTo(a.date))).take(limit).toList();
+    yield recent();
+    yield* _changes.stream.map((_) => recent());
   }
 
   @override

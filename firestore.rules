@@ -39,6 +39,17 @@ service cloud.firestore {
     }
 
     // ---------------------------------------------------------------
+    // Collection group queries of movements: the history of a person in
+    // "Todos los grupos". Only the user's own movements (they are a party),
+    // so the query must filter `participants array-contains` their uid.
+    // Note: it also lets someone who left a group page their own movements
+    // there; reading the whole group still needs being an active member.
+    // ---------------------------------------------------------------
+    match /{path=**}/movements/{movementId} {
+      allow list: if signedIn() && request.auth.uid in resource.data.participants;
+    }
+
+    // ---------------------------------------------------------------
     // nicknames/{nickname} → { uid, email }
     // Unique nickname index; also used to sign in with the nickname.
     // ---------------------------------------------------------------
@@ -588,7 +599,7 @@ service cloud.firestore {
 
       // groups/{groupId}/movements/{movementId}
       //   → { type (debt|payment), debtorUid, creditorUid, participants,
-      //       amount, kind?, eventId?, eventName?, concept, appliedTo?,
+      //       pairKey (both uids sorted, joined with _), amount, kind?, eventId?, eventName?, concept, appliedTo?,
       //       account?, note?, attachment?, date, createdBy, createdAt,
       //       status (active|rejected|deleted), rejectedAt?, rejectedBy?,
       //       rejectReason?, rejectNote?, deletedAt?, seenBy }
@@ -610,7 +621,7 @@ service cloud.firestore {
 
         function validNewMovement() {
           return d().keys().hasOnly(['type', 'debtorUid', 'creditorUid',
-               'participants', 'amount', 'kind', 'eventId', 'eventName',
+               'participants', 'pairKey', 'amount', 'kind', 'eventId', 'eventName',
                'concept', 'appliedTo', 'account', 'note', 'attachment',
                'date', 'createdBy', 'createdAt', 'status', 'seenBy'])
             && d().type in ['debt', 'payment']
@@ -618,6 +629,9 @@ service cloud.firestore {
             && d().creditorUid is string
             && d().debtorUid != d().creditorUid
             && d().participants == [d().debtorUid, d().creditorUid]
+            && d().pairKey == (d().debtorUid < d().creditorUid
+              ? d().debtorUid + '_' + d().creditorUid
+              : d().creditorUid + '_' + d().debtorUid)
             && request.auth.uid in d().participants
             && d().createdBy == request.auth.uid
             && d().amount is int

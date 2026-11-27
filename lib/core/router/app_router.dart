@@ -61,10 +61,6 @@ abstract final class AppRoutes {
   static const String groups = '/groups';
   static const String groupDetail = '/groups/:groupId';
   static const String newEvent = '/events/new';
-  static const String newMovement = '/movements/new';
-  static const String newIncome = '/movements/new/income';
-  static const String newPayment = '/movements/new/payment';
-  static const String newDebt = '/movements/new/debt';
 
   // Auth (nested so the back stack follows the auth flow).
   static const String welcome = '/auth';
@@ -341,26 +337,6 @@ List<RouteBase> overShellRoutes() => [
             FadeTransition(opacity: animation, child: child),
       );
     },
-  ),
-  GoRoute(
-    path: AppRoutes.newMovement,
-    parentNavigatorKey: rootNavigatorKey,
-    builder: (context, state) =>
-        const PendingScreen(name: HomeStrings.addMovement),
-    routes: [
-      _pending(
-        _child(AppRoutes.newIncome, of: AppRoutes.newMovement),
-        HomeStrings.addIncome,
-      ),
-      _pending(
-        _child(AppRoutes.newPayment, of: AppRoutes.newMovement),
-        HomeStrings.addPayment,
-      ),
-      _pending(
-        _child(AppRoutes.newDebt, of: AppRoutes.newMovement),
-        HomeStrings.addDebt,
-      ),
-    ],
   ),
 ];
 

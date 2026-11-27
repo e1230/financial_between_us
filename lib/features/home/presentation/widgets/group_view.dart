@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_tokens.dart';
+import '../../../balances/presentation/quick/quick_movement.dart';
+import '../../../balances/presentation/quick/quick_movement_kind.dart';
 import '../../../profile/data/profile_providers.dart';
 import '../../data/home_providers.dart';
 import '../home_metrics.dart';
@@ -56,7 +56,8 @@ class GroupView extends ConsumerWidget {
                 child: QuickActionButton(
                   icon: Icons.south_west,
                   label: HomeStrings.addIncome,
-                  onTap: () => context.push(AppRoutes.newIncome),
+                  onTap: () =>
+                      startQuickMovement(context, QuickMovementKind.income),
                 ),
               ),
               const SizedBox(width: HomeMetrics.actionGap),
@@ -64,7 +65,8 @@ class GroupView extends ConsumerWidget {
                 child: QuickActionButton(
                   icon: Icons.north_east,
                   label: HomeStrings.addPayment,
-                  onTap: () => context.push(AppRoutes.newPayment),
+                  onTap: () =>
+                      startQuickMovement(context, QuickMovementKind.payment),
                 ),
               ),
               const SizedBox(width: HomeMetrics.actionGap),
@@ -72,7 +74,8 @@ class GroupView extends ConsumerWidget {
                 child: QuickActionButton(
                   icon: Icons.schedule,
                   label: HomeStrings.addDebt,
-                  onTap: () => context.push(AppRoutes.newDebt),
+                  onTap: () =>
+                      startQuickMovement(context, QuickMovementKind.debt),
                 ),
               ),
             ],
