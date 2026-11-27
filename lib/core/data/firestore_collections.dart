@@ -28,6 +28,10 @@ abstract final class FirestoreCollections {
   /// user sent to join; the security rules compare it with the secret.
   static const String groupJoinProofs = 'joinProofs';
 
+  /// `groups/{groupId}/movements/{movementId}`: debts and payments between
+  /// members, the ledger every balance is computed from.
+  static const String groupMovements = 'movements';
+
   /// `groups/{groupId}/auditLog/{logId}`: write-only change log.
   static const String groupAuditLog = 'auditLog';
 

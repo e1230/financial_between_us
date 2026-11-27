@@ -13,7 +13,7 @@ import '../home_text_styles.dart';
 IconData movementIcon(MovementType type) => switch (type) {
   MovementType.income => Icons.south_west,
   MovementType.payment => Icons.north_east,
-  MovementType.debt => Icons.schedule,
+  MovementType.debt || MovementType.owed => Icons.schedule,
 };
 
 /// A row of "Últimos movimientos": icon, title, "{place} · {date}", and the
@@ -54,6 +54,13 @@ class MovementTile extends StatelessWidget {
         tokens.negative,
         MoneyFormat.format(m.amount),
         HomeStrings.debt,
+      ),
+      MovementType.owed => (
+        tokens.positive,
+        tokens.positive.withValues(alpha: HomeMetrics.semanticTintOpacity),
+        tokens.positive,
+        MoneyFormat.format(m.amount),
+        HomeStrings.owed,
       ),
     };
 

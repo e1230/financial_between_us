@@ -1,6 +1,6 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../../core/data/cloudinary_providers.dart';
 import '../../../core/data/firestore_providers.dart';
 import '../../auth/data/auth_providers.dart';
 import '../domain/user_profile.dart';
@@ -14,12 +14,9 @@ part 'profile_providers.g.dart';
 UserProfileRepository userProfileRepository(Ref ref) =>
     FirestoreUserProfileRepository(ref.watch(firebaseFirestoreProvider));
 
-/// Cloudinary uploader configured from `.env` (loaded by app startup).
 @Riverpod(keepAlive: true)
-AvatarUploader avatarUploader(Ref ref) => CloudinaryAvatarUploader(
-  cloudName: dotenv.env['CLOUDINARY_CLOUD_NAME'] ?? '',
-  uploadPreset: dotenv.env['CLOUDINARY_UPLOAD_PRESET'] ?? '',
-);
+AvatarUploader avatarUploader(Ref ref) =>
+    CloudinaryAvatarUploader(ref.watch(cloudinaryImageUploaderProvider));
 
 @Riverpod(keepAlive: true)
 AvatarPicker avatarPicker(Ref ref) => DeviceAvatarPicker();

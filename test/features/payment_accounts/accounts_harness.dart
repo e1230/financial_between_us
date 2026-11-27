@@ -3,6 +3,7 @@ import 'package:financial_between_us/core/router/app_router.dart';
 import 'package:financial_between_us/core/theme/app_theme.dart';
 import 'package:financial_between_us/features/auth/data/auth_providers.dart';
 import 'package:financial_between_us/features/auth/data/auth_repository.dart';
+import 'package:financial_between_us/features/balances/data/balances_providers.dart';
 import 'package:financial_between_us/features/groups/data/groups_providers.dart';
 import 'package:financial_between_us/features/groups/data/selected_group_repository.dart';
 import 'package:financial_between_us/features/home/data/home_activity_repository.dart';
@@ -18,6 +19,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../support/fakes.dart';
+import '../../support/movements_fakes.dart';
 import '../../support/group_fakes.dart';
 import '../../support/payment_accounts_fakes.dart';
 
@@ -93,6 +95,9 @@ Future<PlatformLog> pumpAccounts(
           FakeHomeActivityRepository(clock: () => DateTime(2026, 11, 25, 21)),
         ),
         appVersionProvider.overrideWith((ref) async => '1.0.0'),
+        movementsRepositoryProvider.overrideWithValue(
+          FakeMovementsRepository(),
+        ),
         paymentAccountsRepositoryProvider.overrideWithValue(repository),
         if (accounts != null)
           myPaymentAccountsProvider.overrideWith((ref) => accounts),

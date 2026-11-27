@@ -60,6 +60,11 @@ abstract final class HomeStrings {
   static const String income = 'Ingreso';
   static const String payment = 'Pago';
   static const String debt = 'Deuda';
+  static const String owed = 'Por cobrar';
+  static String paidYou(String nickname) => '@$nickname te pagó';
+  static String youPaid(String nickname) => 'Le pagaste a @$nickname';
+  static String youOweTo(String nickname) => 'Le debes a @$nickname';
+  static String owesYou(String nickname) => '@$nickname te debe';
   static String people(int count) => '$count personas';
 
   // + popover

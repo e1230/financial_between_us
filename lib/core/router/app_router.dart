@@ -12,6 +12,10 @@ import '../../features/auth/presentation/screens/recover_screen.dart';
 import '../../features/auth/presentation/screens/recover_sent_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/auth/presentation/screens/welcome_screen.dart';
+import '../../features/balances/presentation/attachment_viewer_screen.dart';
+import '../../features/balances/presentation/balances_metrics.dart';
+import '../../features/balances/presentation/balances_screen.dart';
+import '../../features/balances/presentation/person/person_balance_screen.dart';
 import '../../features/groups/presentation/group_detail_screen.dart';
 import '../../features/groups/presentation/groups_screen.dart';
 import '../../features/home/presentation/home_metrics.dart';
@@ -40,6 +44,13 @@ abstract final class AppRoutes {
   static const String home = '/home';
   static const String events = '/events';
   static const String balances = '/balances';
+
+  /// Balance with one person; `?group=` is a group id or `all`.
+  static const String personBalance = '/balances/person/:uid';
+  static const String groupQuery = 'group';
+
+  /// Full-screen image of a movement (the arguments go in `extra`).
+  static const String attachment = '/attachment';
   static const String profile = '/profile';
 
   // Pages over the shell (no bottom bar).
@@ -69,6 +80,12 @@ abstract final class AppRoutes {
 
   /// Form to edit the payment account [accountId].
   static String editAccountFor(String accountId) => '$accounts/$accountId/edit';
+
+  /// Balance with [uid] in [scopeParam] (a group id or `all`).
+  static String personBalanceFor(String uid, String scopeParam) => Uri(
+    path: '$balances/person/$uid',
+    queryParameters: {groupQuery: scopeParam},
+  ).toString();
 
   /// Detail of the group [groupId].
   static String groupDetailFor(String groupId) => '$groups/$groupId';
@@ -236,8 +253,14 @@ StatefulShellRoute homeShellRoute() {
         routes: [
           GoRoute(
             path: AppRoutes.balances,
-            builder: (context, state) =>
-                const PendingScreen(name: HomeStrings.tabBalances),
+            builder: (context, state) => const BalancesScreen(),
+            routes: [
+              GoRoute(
+                path: _child(AppRoutes.personBalance, of: AppRoutes.balances),
+                parentNavigatorKey: rootNavigatorKey,
+                pageBuilder: (context, state) => _personPage(context, state),
+              ),
+            ],
           ),
         ],
       ),
@@ -302,6 +325,24 @@ List<RouteBase> overShellRoutes() => [
     ],
   ),
   GoRoute(
+    path: AppRoutes.attachment,
+    parentNavigatorKey: rootNavigatorKey,
+    pageBuilder: (context, state) {
+      final args = state.extra;
+      return CustomTransitionPage<void>(
+        key: state.pageKey,
+        opaque: false,
+        transitionDuration: BalancesMetrics.heroFlight,
+        reverseTransitionDuration: BalancesMetrics.heroFlight,
+        child: AttachmentViewerScreen(
+          args: args is AttachmentViewerArgs ? args : null,
+        ),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+            FadeTransition(opacity: animation, child: child),
+      );
+    },
+  ),
+  GoRoute(
     path: AppRoutes.newMovement,
     parentNavigatorKey: rootNavigatorKey,
     builder: (context, state) =>
@@ -346,6 +387,34 @@ CustomTransitionPage<void> _menuPage(
     child: const AvatarMenuScreen(),
     transitionDuration: duration,
     reverseTransitionDuration: duration,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+        FadeTransition(
+          opacity: CurvedAnimation(
+            parent: animation,
+            curve: Curves.fastOutSlowIn,
+          ),
+          child: child,
+        ),
+  );
+}
+
+/// The balance with a person: a fade of 350 ms while the avatar flies as a
+/// Hero from the list row. With `MediaQuery.disableAnimations`, 150 ms.
+CustomTransitionPage<void> _personPage(
+  BuildContext context,
+  GoRouterState state,
+) {
+  final duration = MediaQuery.disableAnimationsOf(context)
+      ? BalancesMetrics.reducedFade
+      : BalancesMetrics.heroFlight;
+  return CustomTransitionPage<void>(
+    key: state.pageKey,
+    transitionDuration: duration,
+    reverseTransitionDuration: duration,
+    child: PersonBalanceScreen(
+      uid: state.pathParameters['uid']!,
+      scopeParam: state.uri.queryParameters[AppRoutes.groupQuery],
+    ),
     transitionsBuilder: (context, animation, secondaryAnimation, child) =>
         FadeTransition(
           opacity: CurvedAnimation(

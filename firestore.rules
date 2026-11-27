@@ -586,6 +586,106 @@ service cloud.firestore {
         allow delete: if false;
       }
 
+      // groups/{groupId}/movements/{movementId}
+      //   → { type (debt|payment), debtorUid, creditorUid, participants,
+      //       amount, kind?, eventId?, eventName?, concept, appliedTo?,
+      //       account?, note?, attachment?, date, createdBy, createdAt,
+      //       status (active|rejected|deleted), rejectedAt?, rejectedBy?,
+      //       rejectReason?, rejectNote?, deletedAt?, seenBy }
+      // The ledger balances are computed from. Applied as soon as it is
+      // written; never edited: its recipient (the party that did not write
+      // it) may reject it once, its author may delete it (soft delete), and
+      // either party marks it as seen. The rules cannot check that
+      // `appliedTo` matches the pending debts (accepted risk among friends).
+      match /movements/{movementId} {
+        function d() {
+          return request.resource.data;
+        }
+
+        function optionalString(field, max) {
+          return !(field in d())
+            || d()[field] == null
+            || (d()[field] is string && d()[field].size() <= max);
+        }
+
+        function validNewMovement() {
+          return d().keys().hasOnly(['type', 'debtorUid', 'creditorUid',
+               'participants', 'amount', 'kind', 'eventId', 'eventName',
+               'concept', 'appliedTo', 'account', 'note', 'attachment',
+               'date', 'createdBy', 'createdAt', 'status', 'seenBy'])
+            && d().type in ['debt', 'payment']
+            && d().debtorUid is string
+            && d().creditorUid is string
+            && d().debtorUid != d().creditorUid
+            && d().participants == [d().debtorUid, d().creditorUid]
+            && request.auth.uid in d().participants
+            && d().createdBy == request.auth.uid
+            && d().amount is int
+            && d().amount > 0
+            && d().amount <= 100000000
+            && d().concept is string
+            && d().concept.size() <= 60
+            && optionalString('eventId', 128)
+            && optionalString('eventName', 120)
+            && optionalString('note', 120)
+            && d().date is timestamp
+            && d().createdAt == request.time
+            && d().status == 'active'
+            && d().seenBy == [request.auth.uid]
+            && (d().type == 'debt'
+              ? d().kind in ['event', 'direct']
+                && d().concept.size() > 0
+                && !('appliedTo' in d())
+              : d().appliedTo is list
+                && d().appliedTo.size() <= 50
+                && !('kind' in d()));
+        }
+
+        function changed() {
+          return d().diff(resource.data).affectedKeys();
+        }
+
+        // seenBy only gains the signed-in user.
+        function seenByMe() {
+          return d().seenBy.toSet()
+            == resource.data.seenBy.toSet().union([request.auth.uid].toSet());
+        }
+
+        function validReject() {
+          return resource.data.status == 'active'
+            && request.auth.uid in resource.data.participants
+            && request.auth.uid != resource.data.createdBy
+            && changed().hasOnly(['status', 'rejectedAt', 'rejectedBy',
+                 'rejectReason', 'rejectNote', 'seenBy'])
+            && d().status == 'rejected'
+            && d().rejectedAt == request.time
+            && d().rejectedBy == request.auth.uid
+            && d().rejectReason in ['not_received', 'wrong_amount', 'other']
+            && optionalString('rejectNote', 80)
+            && seenByMe();
+        }
+
+        function validDelete() {
+          return resource.data.status == 'active'
+            && request.auth.uid == resource.data.createdBy
+            && changed().hasOnly(['status', 'deletedAt'])
+            && d().status == 'deleted'
+            && d().deletedAt == request.time;
+        }
+
+        function validSeen() {
+          return request.auth.uid in resource.data.participants
+            && changed().hasOnly(['seenBy'])
+            && seenByMe();
+        }
+
+        allow read: if isActiveMember();
+        allow create: if isActiveMember() && validNewMovement();
+        allow update: if isActiveMember()
+          && (validReject() || validDelete() || validSeen());
+        allow delete: if false;
+      }
+
       // groups/{groupId}/auditLog/{logId}: write-only change log.
       match /auditLog/{logId} {
         allow read: if isActiveMember();

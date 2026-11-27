@@ -1,33 +1,22 @@
 import '../domain/activity_period.dart';
-import '../domain/movement.dart';
 import '../domain/period_labels.dart';
 
-/// Money activity of the user in a group: the Home chart and "Últimos
-/// movimientos". The UI only depends on this interface.
+/// Money activity of the user in a group over time: the Home chart. The
+/// UI only depends on this interface. ("Últimos movimientos" comes from the
+/// real movements, see `recentMovementsProvider`.)
 abstract interface class HomeActivityRepository {
-  /// The [limit] most recent movements of [groupId] that involve [uid],
-  /// newest first.
-  Stream<List<Movement>> watchRecentMovements({
-    required String groupId,
-    required String uid,
-    int limit = recentLimit,
-  });
-
   /// What [uid] paid, is owed and owes in [groupId] along [period].
   Stream<ActivitySeries> watchSeries({
     required String groupId,
     required String uid,
     required ActivityPeriod period,
   });
-
-  /// Movements shown in the Home.
-  static const int recentLimit = 5;
 }
 
-/// In-memory activity with the data of the design captures.
-// TODO: replace with a Firestore implementation that derives movements and
-// series from outings, payments and settlements (balances are computed,
-// never stored). If the volume grows, use aggregates.
+/// In-memory chart series with the data of the design captures.
+// TODO: derive the series from the group movements once events exist
+// (balances are computed, never stored). If the volume grows, use
+// aggregates.
 // DECISIÓN: every group shows the same sample data until then.
 class FakeHomeActivityRepository implements HomeActivityRepository {
   FakeHomeActivityRepository({DateTime Function()? clock})
@@ -36,44 +25,6 @@ class FakeHomeActivityRepository implements HomeActivityRepository {
   final DateTime Function() _clock;
 
   static const int _thousand = 1000;
-
-  @override
-  Stream<List<Movement>> watchRecentMovements({
-    required String groupId,
-    required String uid,
-    int limit = HomeActivityRepository.recentLimit,
-  }) {
-    final now = _clock();
-    final today = DateTime(now.year, now.month, now.day);
-    final movements = [
-      Movement(
-        id: 'm1',
-        type: MovementType.income,
-        amount: 32 * _thousand,
-        title: '@ana te pagó',
-        place: 'Crepes & Waffles',
-        createdAt: now.subtract(const Duration(minutes: 45)),
-      ),
-      Movement(
-        id: 'm2',
-        type: MovementType.payment,
-        amount: 248 * _thousand,
-        title: 'Pagaste la cuenta',
-        place: 'Andrés Carne de Res',
-        createdAt: today.subtract(const Duration(hours: 3)),
-        participants: 6,
-      ),
-      Movement(
-        id: 'm3',
-        type: MovementType.debt,
-        amount: 41500,
-        title: 'Le debes a @pedro',
-        place: 'Bogotá Beer Company',
-        createdAt: today.subtract(const Duration(days: 3, hours: 2)),
-      ),
-    ];
-    return Stream.value(movements.take(limit).toList());
-  }
 
   @override
   Stream<ActivitySeries> watchSeries({

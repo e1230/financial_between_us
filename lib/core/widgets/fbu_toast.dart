@@ -11,6 +11,9 @@ enum FbuToastPosition {
 
   /// 16 dp below the status bar, so it does not cover a bottom sheet.
   top,
+
+  /// 128 dp above the gesture bar, over a screen's bottom action bar.
+  aboveActions,
 }
 
 /// Short confirmation pill ("Copiado", "Cuenta guardada"): light fill,
@@ -32,6 +35,7 @@ abstract final class FbuToast {
   static const double iconGap = 8;
   static const double bottomOffset = 48;
   static const double topOffset = 16;
+  static const double aboveActionsOffset = 128;
   static const double entryOffset = 8;
 
   static OverlayEntry? _entry;
@@ -164,7 +168,12 @@ class _ToastState extends State<_Toast> with SingleTickerProviderStateMixin {
       left: tokens.space2,
       right: tokens.space2,
       top: atTop ? padding.top + FbuToast.topOffset : null,
-      bottom: atTop ? null : padding.bottom + FbuToast.bottomOffset,
+      bottom: atTop
+          ? null
+          : padding.bottom +
+                (widget.position == FbuToastPosition.aboveActions
+                    ? FbuToast.aboveActionsOffset
+                    : FbuToast.bottomOffset),
       child: IgnorePointer(
         child: Center(
           child: Semantics(

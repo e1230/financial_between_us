@@ -1,11 +1,13 @@
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../balances/data/balances_providers.dart';
 import '../../groups/data/groups_providers.dart';
 import '../../profile/data/profile_providers.dart';
 import '../domain/activity_period.dart';
 import '../domain/movement.dart';
 import 'home_activity_repository.dart';
+import 'recent_movements.dart';
 
 part 'home_providers.g.dart';
 
@@ -24,16 +26,24 @@ class SelectedPeriod extends _$SelectedPeriod {
 
 /// Latest movements of the active group that involve the user.
 @riverpod
-Stream<List<Movement>> recentMovements(Ref ref) async* {
+Future<List<Movement>> recentMovements(Ref ref) async {
   final group = await ref.watch(activeGroupProvider.future);
   final profile = await ref.watch(currentUserProfileProvider.future);
-  if (group == null || profile == null) {
-    yield const [];
-    return;
-  }
-  yield* ref
-      .watch(homeActivityRepositoryProvider)
-      .watchRecentMovements(groupId: group.id, uid: profile.uid);
+  if (group == null || profile == null) return const [];
+  final movements = await ref.watch(groupMovementsProvider(group.id).future);
+  final others = {
+    for (final m in latestActiveOf(me: profile.uid, movements: movements))
+      m.otherParty(profile.uid),
+  };
+  final nicknames = {
+    for (final uid in others)
+      uid: (await ref.watch(userProfileProvider(uid).future))?.nickname ?? '',
+  };
+  return recentMovementsOf(
+    me: profile.uid,
+    movements: movements,
+    nicknameOf: (uid) => nicknames[uid] ?? '',
+  );
 }
 
 /// Chart series of the active group in the selected period.

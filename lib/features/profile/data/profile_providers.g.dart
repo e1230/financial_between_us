@@ -57,17 +57,12 @@ final class UserProfileRepositoryProvider
 String _$userProfileRepositoryHash() =>
     r'80588ebd0227674adf93b6880c36957b9dddc383';
 
-/// Cloudinary uploader configured from `.env` (loaded by app startup).
-
 @ProviderFor(avatarUploader)
 final avatarUploaderProvider = AvatarUploaderProvider._();
-
-/// Cloudinary uploader configured from `.env` (loaded by app startup).
 
 final class AvatarUploaderProvider
     extends $FunctionalProvider<AvatarUploader, AvatarUploader, AvatarUploader>
     with $Provider<AvatarUploader> {
-  /// Cloudinary uploader configured from `.env` (loaded by app startup).
   AvatarUploaderProvider._()
     : super(
         from: null,
@@ -101,7 +96,7 @@ final class AvatarUploaderProvider
   }
 }
 
-String _$avatarUploaderHash() => r'bc34ae254a361d8a8760762bb02229553f3faa2c';
+String _$avatarUploaderHash() => r'2cfead378169b9a98b2da754f985695a86cb9826';
 
 @ProviderFor(avatarPicker)
 final avatarPickerProvider = AvatarPickerProvider._();

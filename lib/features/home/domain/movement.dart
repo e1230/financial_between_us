@@ -12,6 +12,11 @@ enum MovementType {
 
   /// The user owes someone.
   debt,
+
+  /// Someone owes the user.
+  // DECISIÓN: a fourth kind, so a debt in the user's favor is not shown as
+  // money already received.
+  owed,
 }
 
 /// A money movement of a group that involves the user ("Últimos

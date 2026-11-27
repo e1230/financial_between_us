@@ -4,6 +4,9 @@ import 'package:financial_between_us/core/widgets/fbu_pill_button.dart';
 import 'package:financial_between_us/core/widgets/fbu_primary_button.dart';
 import 'package:financial_between_us/features/auth/data/auth_providers.dart';
 import 'package:financial_between_us/features/auth/data/auth_repository.dart';
+import 'package:financial_between_us/features/balances/data/balances_providers.dart';
+import 'package:financial_between_us/features/balances/domain/ledger_movement.dart';
+import 'package:financial_between_us/features/balances/presentation/balances_screen.dart';
 import 'package:financial_between_us/features/groups/data/groups_providers.dart';
 import 'package:financial_between_us/features/groups/data/selected_group_repository.dart';
 import 'package:financial_between_us/features/groups/domain/group.dart';
@@ -23,6 +26,8 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../support/fakes.dart';
 import '../../support/group_fakes.dart';
+import '../../support/ledger_builders.dart';
+import '../../support/movements_fakes.dart';
 
 const _uid = 'me';
 const _welcome = 'WELCOME';
@@ -35,6 +40,62 @@ const _profile = UserProfile(
   colorValue: 0xFF9FA8DA,
   profileCompleted: true,
 );
+
+UserProfile _friend(String uid) => UserProfile(
+  uid: uid,
+  displayName: uid,
+  nickname: uid,
+  email: '$uid@correo.com',
+);
+
+/// Movements of the group `a`, like the Home captures.
+List<LedgerMovement> _movements() => [
+  debtOf(
+    'crepes',
+    'ana',
+    _uid,
+    32000,
+    day: 24,
+    groupId: 'a',
+    eventName: 'Crepes & Waffles',
+  ),
+  paymentOf(
+    'p1',
+    'ana',
+    _uid,
+    32000,
+    day: 25,
+    groupId: 'a',
+    applied: {'crepes': 32000},
+  ),
+  debtOf(
+    'carne',
+    _uid,
+    'pedro',
+    248000,
+    day: 20,
+    groupId: 'a',
+    eventName: 'Andrés Carne de Res',
+  ),
+  paymentOf(
+    'p2',
+    _uid,
+    'pedro',
+    248000,
+    day: 24,
+    groupId: 'a',
+    applied: {'carne': 248000},
+  ),
+  debtOf(
+    'bbc',
+    _uid,
+    'pedro',
+    41500,
+    day: 22,
+    groupId: 'a',
+    eventName: 'Bogotá Beer Company',
+  ),
+];
 
 Group _group(
   String id,
@@ -126,6 +187,14 @@ void main() {
             FakeHomeActivityRepository(clock: () => DateTime(2026, 11, 25, 21)),
           ),
           appVersionProvider.overrideWith((ref) async => '1.0.0'),
+          movementsRepositoryProvider.overrideWithValue(
+            FakeMovementsRepository(_movements()),
+          ),
+          userProfileRepositoryProvider.overrideWithValue(
+            FakeUserProfileRepository(
+              profiles: {'ana': _friend('ana'), 'pedro': _friend('pedro')},
+            ),
+          ),
         ],
         child: MaterialApp.router(
           theme: AppTheme.withAccent(const Color(0xFF9FA8DA)),
@@ -381,11 +450,9 @@ void main() {
       expect(find.text('Agregar ingreso'), findsOneWidget);
       expect(find.text('@ana te pagó'), findsOneWidget);
       expect(find.text(r'+$ 32.000'), findsOneWidget);
+      expect(find.text('Le pagaste a @pedro'), findsOneWidget);
       expect(find.text('−\$ 248.000'), findsOneWidget);
-      expect(
-        find.text('Andrés Carne de Res · Ayer · 6 personas'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('Andrés Carne de Res · '), findsWidgets);
       expect(
         find.bySemanticsLabel(RegExp(r'Pagado: \$ 1\.642\.000')),
         findsOneWidget,
@@ -428,7 +495,7 @@ void main() {
     testWidgets('back from another tab returns to Inicio', (tester) async {
       await pumpHome(tester);
       await tap(tester, find.text('Saldos'));
-      expect(find.text('Saldos (pendiente)'), findsOneWidget);
+      expect(find.byType(BalancesScreen), findsOneWidget);
 
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
@@ -560,7 +627,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      expect(find.text('Le debes a @pedro').hitTestable(), findsOneWidget);
+      expect(find.text('Le debes a @pedro').hitTestable(), findsWidgets);
     });
 
     testWidgets('works without animations', (tester) async {

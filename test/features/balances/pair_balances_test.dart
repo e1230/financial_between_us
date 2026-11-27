@@ -1,7 +1,5 @@
-import 'package:financial_between_us/features/balances/data/balances_repository.dart';
 import 'package:financial_between_us/features/balances/domain/debt.dart';
 import 'package:financial_between_us/features/balances/domain/pair_balances.dart';
-import 'package:financial_between_us/features/groups/domain/group.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Debt _d(String from, String to, int amount) =>
@@ -59,31 +57,5 @@ void main() {
     expect(netBalance('me', debts), -9500);
     expect(netBalance('beto', debts), 42500);
     expect(netBalance('dora', debts), 0);
-  });
-
-  test('the sample repository shows owing, owed and even pairs', () async {
-    final debts = await const FakeBalancesRepository()
-        .watchDebts(
-          const Group(
-            id: 'g1',
-            name: 'Fútbol',
-            code: 'FUT-2345',
-            ownerUid: 'a',
-            memberUids: ['a', 'b', 'c', 'd'],
-          ),
-        )
-        .first;
-    final mine = balancesWith('a', debts);
-    expect(mine['b'], greaterThan(0));
-    expect(mine['c'], lessThan(0));
-    expect(mine.containsKey('d'), isFalse);
-    // Every peso owed by someone is owed to someone else.
-    final total = [
-      'a',
-      'b',
-      'c',
-      'd',
-    ].map((uid) => netBalance(uid, debts)).fold(0, (sum, v) => sum + v);
-    expect(total, 0);
   });
 }

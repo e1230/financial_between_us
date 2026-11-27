@@ -127,9 +127,9 @@ final class RecentMovementsProvider
         $FunctionalProvider<
           AsyncValue<List<Movement>>,
           List<Movement>,
-          Stream<List<Movement>>
+          FutureOr<List<Movement>>
         >
-    with $FutureModifier<List<Movement>>, $StreamProvider<List<Movement>> {
+    with $FutureModifier<List<Movement>>, $FutureProvider<List<Movement>> {
   /// Latest movements of the active group that involve the user.
   RecentMovementsProvider._()
     : super(
@@ -147,17 +147,17 @@ final class RecentMovementsProvider
 
   @$internal
   @override
-  $StreamProviderElement<List<Movement>> $createElement(
+  $FutureProviderElement<List<Movement>> $createElement(
     $ProviderPointer pointer,
-  ) => $StreamProviderElement(pointer);
+  ) => $FutureProviderElement(pointer);
 
   @override
-  Stream<List<Movement>> create(Ref ref) {
+  FutureOr<List<Movement>> create(Ref ref) {
     return recentMovements(ref);
   }
 }
 
-String _$recentMovementsHash() => r'25d4545347aecbcb6b5cbf46a8c09ab143683d2e';
+String _$recentMovementsHash() => r'd7fd57f3a6d69f9f5081c14c12aec7a0d66d28fb';
 
 /// Chart series of the active group in the selected period.
 

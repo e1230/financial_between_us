@@ -5,7 +5,6 @@ import 'package:financial_between_us/features/auth/data/auth_providers.dart';
 import 'package:financial_between_us/features/auth/data/auth_repository.dart';
 import 'package:financial_between_us/features/auth/presentation/widgets/fbu_text_field.dart';
 import 'package:financial_between_us/features/balances/data/balances_providers.dart';
-import 'package:financial_between_us/features/balances/domain/debt.dart';
 import 'package:financial_between_us/features/groups/data/groups_providers.dart';
 import 'package:financial_between_us/features/groups/data/selected_group_repository.dart';
 import 'package:financial_between_us/features/groups/domain/group.dart';
@@ -27,7 +26,8 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../../support/balances_fakes.dart';
+import '../../support/ledger_builders.dart';
+import '../../support/movements_fakes.dart';
 import '../../support/fakes.dart';
 import '../../support/group_fakes.dart';
 import '../../support/payment_accounts_fakes.dart';
@@ -76,7 +76,7 @@ void main() {
 
   late FakeGroupsRepository groups;
   late FakeSharedPreferencesAsync prefs;
-  late FixedBalancesRepository balances;
+  late FakeMovementsRepository balances;
   late FakePaymentAccountsRepository accounts;
 
   setUp(() {
@@ -86,9 +86,9 @@ void main() {
       accounts: sampleAccounts(),
       others: {'ana': sampleAccounts()},
     );
-    balances = FixedBalancesRepository([
-      const Debt(fromUid: 'ana', toUid: _uid, amount: 32000),
-      const Debt(fromUid: _uid, toUid: 'beto', amount: 41500),
+    balances = FakeMovementsRepository([
+      debtOf('d1', 'ana', _uid, 32000, groupId: 'g1'),
+      debtOf('d2', _uid, 'beto', 41500, groupId: 'g1'),
     ]);
   });
 
@@ -128,7 +128,7 @@ void main() {
           ),
           authRepositoryProvider.overrideWithValue(FakeAuthRepository()),
           groupsRepositoryProvider.overrideWithValue(groups),
-          balancesRepositoryProvider.overrideWithValue(balances),
+          movementsRepositoryProvider.overrideWithValue(balances),
           selectedGroupRepositoryProvider.overrideWithValue(
             SelectedGroupRepository(prefs),
           ),

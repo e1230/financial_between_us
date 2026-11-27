@@ -10,7 +10,7 @@ App Android en Flutter para que un grupo pequeño de amigos (≤ 10 personas) re
 - Navegación: **go_router**. Las pantallas de autenticación comparten un fondo animado mediante un `ShellRoute`.
 - Modelos: **freezed** + **json_serializable**.
 - Backend: **Firebase Auth** + **Cloud Firestore** (plan gratuito Spark).
-- Fotos de recibos: **Cloudinary** (plan gratuito, upload preset sin firma). Nunca poner el API secret en la app.
+- Fotos de recibos: **Cloudinary** (plan gratuito, upload preset sin firma; avatares en `fbu/avatars`, imágenes de movimientos en `fbu/receipts/{gid}`). Nunca poner el API secret en la app. No se usa Firebase Storage.
 - Preferencias locales: **shared_preferences** (`SharedPreferencesAsync`), excluidas de la copia de seguridad de Android.
 
 ## Carpeta `temp/`
@@ -35,7 +35,7 @@ lib/
     home/        # shell con barra inferior, Home, menú del avatar
     payment_accounts/  # cuentas de pago del usuario (Nequi, Bre-B, …)
     outings/
-    balances/
+    balances/    # Saldos: movimientos (deudas y pagos), cálculo por par, detalle por persona
 ```
 
 - `domain`: entidades y lógica pura (sin Flutter ni Firebase). Aquí vive el cálculo de saldos.
@@ -60,8 +60,12 @@ groups/{groupId}                 name, code, ownerUid, admins: [uid], requiresAp
   joinProofs/{uid}               hash que envía quien se une (las reglas lo comparan)
   outings/{outingId}             fecha, lugar, totalCOP, propinaPct, fotoUrl, createdBy
     items/{itemId}               descripción, valorCOP, consumidores {uid: partes}
-    payments/{paymentId}         quién pagó y cuánto
-  settlements/{id}               abonos entre miembros
+  movements/{mid}                type (debt|payment), debtorUid, creditorUid, participants [debtor, creditor],
+                                 amount (int), kind? (event|direct), eventId?, eventName?, concept,
+                                 appliedTo? [{targetId, amount}], account? {type, name, reference},
+                                 note?, attachment? {url, width, height, bytes}, date, createdBy, createdAt,
+                                 status (active|rejected|deleted), rejectedAt?, rejectedBy?,
+                                 rejectReason? (not_received|wrong_amount|other), rejectNote?, deletedAt?, seenBy [uid]
   auditLog/{logId}               acción, entidad, antes/después, uid, timestamp
 ```
 
@@ -72,7 +76,10 @@ groups/{groupId}                 name, code, ownerUid, admins: [uid], requiresAp
 - Las cuentas de pago son **del usuario, no del grupo**: las mismas en todos sus grupos. Solo el dueño las escribe; las leen él y quien comparta con él un grupo activo (las reglas lo deciden con `userGroups`). En el detalle del grupo, tocar un miembro activo abre sus cuentas en un bottom sheet (tocar una cuenta la copia); tocar tu propia fila abre tu página de Cuentas. Eliminar es soft delete (`deletedAt`) y crear, editar o eliminar escribe en `users/{uid}/auditLog`. Límite suave de 10 por usuario.
 - `userGroups/{uid}` se mantiene en el mismo batch de cada cambio de membresía activa (crear, unirse sin aprobación, aprobar, salir, eliminar) y `membershipIndexSyncProvider` repara el índice propio (p. ej., grupos de antes del índice). Cada escritura suma o quita exactamente un grupo.
 - Compartir texto usa el canal propio `fbu/share` (`MainActivity.kt`, `ACTION_SEND`); no hay `share_plus`.
-- Los saldos por persona salen de `features/balances` (`balancesWith`, `netBalance`). Mientras no existan las salidas, `FakeBalancesRepository` entrega deudas de ejemplo.
+- `movements` es el libro único de saldos (reemplaza a `payments`/`settlements`). Un pago o una deuda **se aplica al saldo al registrarse**, sin confirmación. Solo el destinatario (la parte que no lo registró) puede **rechazarlo**, una vez y con motivo; solo su autor puede **eliminarlo** (soft delete: `status: deleted` + `deletedAt`); nadie lo edita. Crear, rechazar y eliminar escriben en `groups/{gid}/auditLog`; `seenBy` (punto de "nuevo") no se audita.
+- El módulo Eventos, al dividir una cuenta, escribirá una deuda `kind: event` por participante (con `eventId`/`eventName`); mientras tanto `NoGroupEventsRepository` no ofrece eventos.
+- Los saldos se calculan en la app (`PairLedger`) a partir de los movimientos activos del grupo: cada pago liquida sus `appliedTo` (del pendiente más antiguo al más reciente), lo que ya no puede aplicar va a los demás pendientes de esa dirección y el sobrante queda como "Saldo a favor". `balancesWith`/`netBalance` usan `debtsFromMovements`. La app lee todos los movimientos del grupo (sin índice compuesto).
+- "Últimos movimientos" del Home sale de los movimientos reales; la gráfica del Home sigue con `FakeHomeActivityRepository` hasta que existan los eventos.
 
 ## Reglas de negocio (no negociables)
 
@@ -80,7 +87,7 @@ groups/{groupId}                 name, code, ownerUid, admins: [uid], requiresAp
 - Los saldos **se calculan**; no se guardan.
 - La propina se reparte de forma proporcional a lo consumido por cada persona.
 - **Nada se borra físicamente:** soft delete con `deletedAt`. Todo cambio deja un registro en `auditLog`, que es solo de escritura.
-- El algoritmo de simplificación de deudas (minimizar transferencias) vive en `features/balances/domain` y debe tener tests unitarios.
+- El algoritmo de simplificación de deudas (minimizar transferencias) vive en `features/balances/domain` (`simplifyDebts`) y debe tener tests unitarios. La pantalla de Saldos trabaja por pares; la simplificación aún no tiene UI.
 
 ## Sistema de diseño
 

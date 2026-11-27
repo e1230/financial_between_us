@@ -3,6 +3,7 @@ import 'package:financial_between_us/core/theme/app_theme.dart';
 import 'package:financial_between_us/core/widgets/fbu_pill_button.dart';
 import 'package:financial_between_us/features/auth/data/auth_providers.dart';
 import 'package:financial_between_us/features/auth/data/auth_repository.dart';
+import 'package:financial_between_us/features/balances/data/balances_providers.dart';
 import 'package:financial_between_us/features/groups/data/groups_providers.dart';
 import 'package:financial_between_us/features/groups/data/selected_group_repository.dart';
 import 'package:financial_between_us/features/groups/domain/group.dart';
@@ -21,6 +22,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../support/fakes.dart';
+import '../../support/movements_fakes.dart';
 import '../../support/group_fakes.dart';
 
 const _uid = 'me';
@@ -102,6 +104,9 @@ void main() {
             FakeHomeActivityRepository(clock: () => DateTime(2026, 11, 25, 21)),
           ),
           appVersionProvider.overrideWith((ref) async => '1.0.0'),
+          movementsRepositoryProvider.overrideWithValue(
+            FakeMovementsRepository(),
+          ),
         ],
         child: MaterialApp.router(
           theme: AppTheme.withAccent(const Color(0xFF9FA8DA)),
