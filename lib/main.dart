@@ -1,3 +1,4 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -7,6 +8,9 @@ import 'core/theme/app_theme_provider.dart';
 import 'core/theme/app_tokens.dart';
 import 'features/auth/data/sign_in_tracker.dart';
 import 'features/groups/data/groups_providers.dart';
+import 'features/notifications/presentation/background_handlers.dart';
+import 'features/notifications/presentation/notification_listener.dart';
+import 'features/notifications/presentation/notifications_providers.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,6 +27,10 @@ void main() {
     ),
   );
 
+  // Push messages that arrive with the app in background or closed (it
+  // only registers the handler; Firebase is not needed yet).
+  FirebaseMessaging.onBackgroundMessage(onBackgroundPushMessage);
+
   // Firebase and .env are loaded by `appStartupProvider` while the splash
   // animation plays.
   runApp(const ProviderScope(child: FbuApp()));
@@ -37,6 +45,8 @@ class FbuApp extends ConsumerWidget {
     ref.listen(signInTrackerProvider, (_, _) {});
     // Keeps `userGroups/{uid}` (who shares a group with whom) up to date.
     ref.listen(membershipIndexSyncProvider, (_, _) {});
+    // This device's push token, and pushes received in foreground.
+    ref.listen(pushSyncProvider, (_, _) {});
     // MaterialApp creates the MediaQuery, so read the setting from the
     // platform here.
     final reduceMotion = WidgetsBinding
@@ -53,6 +63,9 @@ class FbuApp extends ConsumerWidget {
           ? Duration.zero
           : AppTokens.dark.motionMedium,
       routerConfig: ref.watch(appRouterProvider),
+      // Opens what a tapped notification points to.
+      builder: (context, child) =>
+          NotificationRouteListener(child: child ?? const SizedBox.shrink()),
     );
   }
 }

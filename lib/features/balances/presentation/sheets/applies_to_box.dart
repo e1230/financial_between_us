@@ -60,7 +60,7 @@ class AppliesToBox extends StatelessWidget {
                 final sub = [
                   kindLabel(item.kind),
                   BalancesDates.short(item.date),
-                  if (item.isPartiallyPaid) BalancesStrings.balanceSuffix,
+                  if (item.isReduced) BalancesStrings.balanceSuffix,
                 ].join(' · ');
                 return Semantics(
                   checked: checked,

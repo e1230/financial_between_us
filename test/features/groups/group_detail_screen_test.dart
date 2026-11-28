@@ -12,7 +12,6 @@ import 'package:financial_between_us/features/groups/domain/group_failure.dart';
 import 'package:financial_between_us/features/groups/presentation/group_detail_screen.dart';
 import 'package:financial_between_us/features/groups/presentation/groups_screen.dart';
 import 'package:financial_between_us/features/groups/presentation/widgets/member_tile.dart';
-import 'package:financial_between_us/features/home/data/home_activity_repository.dart';
 import 'package:financial_between_us/features/home/data/home_providers.dart';
 import 'package:financial_between_us/features/payment_accounts/data/payment_accounts_providers.dart';
 import 'package:financial_between_us/features/payment_accounts/presentation/member/member_accounts_sheet.dart';
@@ -31,6 +30,7 @@ import '../../support/movements_fakes.dart';
 import '../../support/fakes.dart';
 import '../../support/group_fakes.dart';
 import '../../support/payment_accounts_fakes.dart';
+import '../../support/home_fakes.dart';
 
 const _uid = 'me';
 

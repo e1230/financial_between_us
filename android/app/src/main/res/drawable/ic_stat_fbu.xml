@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Status bar icon of the push notifications: the brand emblem (two people,
+     the arrows between them and the coin) in one color, as Android requires.
+     Drawn from the launcher foreground, cropped to the emblem and with
+     thicker strokes so it reads at 24 dp. The tint comes from the
+     notification color. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="236"
+    android:viewportHeight="236">
+    <group android:translateX="-82" android:translateY="-92">
+        <!-- Arrows. -->
+        <path
+            android:pathData="M140,148 Q200,104 260,148"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeWidth="12"
+            android:strokeLineCap="round" />
+        <path
+            android:pathData="M260,272 Q200,316 140,272"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeWidth="12"
+            android:strokeLineCap="round" />
+        <path
+            android:pathData="M243,149 L262,150 L256,132"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeWidth="12"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+        <path
+            android:pathData="M157,271 L138,270 L144,288"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeWidth="12"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+        <!-- People. -->
+        <path
+            android:pathData="M108,180 a20,20 0 1,0 40,0 a20,20 0 1,0 -40,0 Z"
+            android:fillColor="#FFFFFFFF" />
+        <path
+            android:pathData="M92,250 C92,224 108,210 128,210 C148,210 164,224 164,250 Z"
+            android:fillColor="#FFFFFFFF" />
+        <path
+            android:pathData="M252,180 a20,20 0 1,0 40,0 a20,20 0 1,0 -40,0 Z"
+            android:fillColor="#FFFFFFFF" />
+        <path
+            android:pathData="M236,250 C236,224 252,210 272,210 C292,210 308,224 308,250 Z"
+            android:fillColor="#FFFFFFFF" />
+        <!-- Coin. -->
+        <path
+            android:pathData="M175,214 a25,25 0 1,0 50,0 a25,25 0 1,0 -50,0 Z"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeWidth="6" />
+        <path
+            android:pathData="M200,198 L200,230"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeWidth="5"
+            android:strokeLineCap="round" />
+        <path
+            android:pathData="M209,206 C207,201 193,200 192,207 C191,213 209,214 208,221 C207,228 193,228 191,222"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeWidth="5.5"
+            android:strokeLineCap="round" />
+    </group>
+</vector>

@@ -90,6 +90,10 @@ abstract final class BalancesStrings {
   static String paidBill(String name) => 'pagó $name';
   static String ofTotal(int total) => 'de ${MoneyFormat.format(total)}';
   static const String partiallyPaid = 'abonó';
+
+  /// Part of it was cancelled against what the other person owed back.
+  static const String partiallyOffset = 'compensada';
+  static const String paidAndOffset = 'abonó · compensada';
   static String pendingLabel({
     required String title,
     required String kind,
@@ -129,6 +133,9 @@ abstract final class BalancesStrings {
   static String appliedTo(String title) => 'A $title';
   static String participants(int count) => '$count personas';
   static const String settledDebt = 'saldada';
+
+  /// Fully cancelled against an opposite debt, without a payment.
+  static const String offsetDebt = 'compensada';
   static const String registeredByYou = 'lo registraste tú';
   static String registeredBy(String firstName) => 'Lo registró $firstName';
   static String rejectedByYou(String when) => 'Lo rechazaste · $when';

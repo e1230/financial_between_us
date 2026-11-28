@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/data/firestore_providers.dart';
 import '../../auth/data/auth_providers.dart';
+import '../../notifications/data/notifications_data_providers.dart';
+import '../../notifications/data/notifying_groups_repository.dart';
 import '../domain/active_group.dart';
 import '../domain/group.dart';
 import '../domain/group_member.dart';
@@ -15,9 +17,13 @@ import 'selected_group_repository.dart';
 
 part 'groups_providers.g.dart';
 
+/// Groups; joining, leaving, approving and removing also notify the
+/// people concerned.
 @Riverpod(keepAlive: true)
-GroupsRepository groupsRepository(Ref ref) =>
-    FirestoreGroupsRepository(ref.watch(firebaseFirestoreProvider));
+GroupsRepository groupsRepository(Ref ref) => NotifyingGroupsRepository(
+  FirestoreGroupsRepository(ref.watch(firebaseFirestoreProvider)),
+  ref.watch(notificationDispatcherProvider),
+);
 
 @Riverpod(keepAlive: true)
 SelectedGroupRepository selectedGroupRepository(Ref ref) =>

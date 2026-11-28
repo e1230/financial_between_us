@@ -12,6 +12,7 @@ App Android en Flutter para que un grupo pequeño de amigos (≤ 10 personas) re
 - Backend: **Firebase Auth** + **Cloud Firestore** (plan gratuito Spark).
 - Fotos de recibos: **Cloudinary** (plan gratuito, upload preset sin firma; avatares en `fbu/avatars`, imágenes de movimientos en `fbu/receipts/{gid}`). Nunca poner el API secret en la app. No se usa Firebase Storage.
 - Preferencias locales: **shared_preferences** (`SharedPreferencesAsync`), excluidas de la copia de seguridad de Android.
+- Notificaciones push: **firebase_messaging** + **flutter_local_notifications**, enviadas por un **Cloudflare Worker** (`workers/notifications/`, TypeScript, plan gratuito) con FCM HTTP v1, porque Spark no tiene Cloud Functions. El Worker es el único código fuera de la app: no es iOS, web ni escritorio. La service account vive como secret del Worker y nunca entra al repo ni a la app. La URL va en `.env` (`NOTIFICATIONS_WORKER_URL`); sin ella, la app no envía avisos (`NoopNotificationDispatcher`).
 
 ## Carpeta `temp/`
 
@@ -36,6 +37,9 @@ lib/
     payment_accounts/  # cuentas de pago del usuario (Nequi, Bre-B, …)
     outings/
     balances/    # Saldos: movimientos (deudas y pagos), cálculo por par, detalle por persona
+    notifications/  # push: eventos al Worker, tokens FCM, notificaciones locales y sus acciones
+workers/
+  notifications/ # Cloudflare Worker que valida y envía los push (vitest, wrangler)
 ```
 
 - `domain`: entidades y lógica pura (sin Flutter ni Firebase). Aquí vive el cálculo de saldos.
@@ -49,6 +53,8 @@ users/{uid}                      displayName, nickname, email, photoUrl, color (
   paymentAccounts/{aid}          name, type (breb|nequi|daviplata|cash|other), keyType? (phone|email|document|alias),
                                  reference (sin formato; "" en cash), createdAt, updatedAt, deletedAt
   auditLog/{logId}               cambios propios del usuario (cuentas), solo escritura
+  fcmTokens/{token}              token, createdAt, updatedAt, deletedAt (dispositivos que reciben push; solo el dueño)
+notificationLog/{key}            type, groupId, actorUid, recipients, sentAt (solo el Worker; dedupe de avisos)
 userGroups/{uid}                 groupIds: [gid] donde el uid es miembro activo (índice para las reglas)
 nicknames/{nickname}             uid, email
 groupCodes/{code}                gid, name, hasPassword, requiresApproval, salt, deletedAt?   (código LIQ-7K4P, único)
@@ -79,10 +85,26 @@ groups/{groupId}                 name, code, ownerUid, admins: [uid], requiresAp
 - Compartir texto usa el canal propio `fbu/share` (`MainActivity.kt`, `ACTION_SEND`); no hay `share_plus`.
 - `movements` es el libro único de saldos (reemplaza a `payments`/`settlements`). Un pago o una deuda **se aplica al saldo al registrarse**, sin confirmación. Solo el destinatario (la parte que no lo registró) puede **rechazarlo**, una vez y con motivo; solo su autor puede **eliminarlo** (soft delete: `status: deleted` + `deletedAt`); nadie lo edita. Crear, rechazar y eliminar escriben en `groups/{gid}/auditLog`; `seenBy` (punto de "nuevo") no se audita.
 - El módulo Eventos, al dividir una cuenta, escribirá una deuda `kind: event` por participante (con `eventId`/`eventName`); mientras tanto `NoGroupEventsRepository` no ofrece eventos.
-- Los saldos se calculan en la app (`PairLedger`) a partir de los movimientos activos del grupo: cada pago liquida sus `appliedTo` (del pendiente más antiguo al más reciente), lo que ya no puede aplicar va a los demás pendientes de esa dirección y el sobrante queda como "Saldo a favor". `balancesWith`/`netBalance` usan `debtsFromMovements`. Para el saldo la app escucha solo los movimientos **activos** del grupo (`status == active`).
+- Los saldos se calculan en la app (`PairLedger`) a partir de los movimientos activos del grupo: cada pago liquida sus `appliedTo` (del pendiente más antiguo al más reciente), lo que ya no puede aplicar va a los demás pendientes de esa dirección y el sobrante queda como "Saldo a favor". Al final, lo pendiente en una dirección se **compensa** con lo pendiente en la otra (del más antiguo al más reciente, solo dentro del mismo grupo). Así, entre dos personas solo queda pendiente una dirección por grupo: el pendiente que sobrevive muestra "compensada" (`PendingItem.offset`) y los que se cancelan del todo quedan en `offsetIds`. El cruce se calcula; nunca se escribe. `balancesWith`/`netBalance` usan `debtsFromMovements`. Para el saldo la app escucha solo los movimientos **activos** del grupo (`status == active`).
 - Nada más se lee completo: el historial de una persona va por páginas de 20 (`pairHistoryProvider`, infinite scroll; la primera página en vivo y las anteriores con `startAfterDocument`), por `pairKey` en un grupo o con collection group (`participants array-contains` + `pairKey`) en "Todos los grupos"; "Últimos movimientos" lee los 10 más recientes del usuario. Los índices están en `firestore.indexes.json` (se publican con `firebase deploy --only firestore:indexes`).
 - En el Home, "Agregar ingreso", "Agregar pago", "Agregar deuda" (y "Agregar movimiento" del +) piden primero la persona del grupo activo (`showPersonPicker`: ingreso solo ofrece a quien te debe y pago a quien le debes) y luego abren los mismos sheets de Saldos (`startQuickMovement`).
-- "Últimos movimientos" del Home sale de los movimientos reales; la gráfica del Home sigue con `FakeHomeActivityRepository` hasta que existan los eventos.
+- Notificaciones: `NotifyingMovementsRepository` y `NotifyingGroupsRepository` (decoradores conectados en `movementsRepositoryProvider` y `groupsRepositoryProvider`) llaman al Worker **después** de cada escritura exitosa, sin esperar la respuesta y sin romper la acción si falla:
+  - movimiento creado, rechazado o eliminado;
+  - unirse o pedir unirse;
+  - salir;
+  - aprobar y eliminar miembros.
+
+  El Worker relee Firestore para validar quién lo hizo, elige destinatarios y crea `notificationLog/{key}` para enviar cada aviso una sola vez (ver `workers/notifications/README.md`). Los mensajes FCM son **solo de datos**; la app dibuja la notificación (`LocalNotifications`, canales `movements` y `groups`):
+  - **Confirmar** marca el movimiento como visto (`seenBy`) en un isolate de fondo, sin cambiar su estado ni el saldo.
+  - **Rechazar** abre `personBalanceFor(..., movementId, reject: true)`, que muestra el detalle con el diálogo de rechazo.
+  - Tocar la notificación abre la ruta de `NotificationContent.routeOf`. En frío la abre el splash; con la app viva, `NotificationRouteListener`.
+
+  El token se registra al iniciar sesión (`pushSyncProvider`) y se retira con `deletedAt` al cerrar sesión. El permiso se pide una sola vez al llegar al Home. "Nuevo evento registrado" queda para el módulo Eventos.
+- "Últimos movimientos" y la gráfica del Home salen de los movimientos reales. La gráfica la calcula `MovementsHomeActivityRepository` con `activitySeriesOf`:
+  - "Pagado" son los pagos del usuario en cada franja.
+  - "Te deben" y "Debes" son los saldos netos por persona al cierre de cada franja.
+
+  Cuando exista Eventos se sumará lo pagado en las cuentas. `FakeHomeActivityRepository` vive solo en `test/support`.
 
 ## Reglas de negocio (no negociables)
 
@@ -121,6 +143,7 @@ dart run build_runner build --delete-conflicting-outputs   # tras cambiar modelo
 flutter analyze
 flutter test
 flutter run
+cd workers/notifications && npm test && npm run typecheck  # Worker de notificaciones
 ```
 
 ## Reglas para Claude
@@ -128,7 +151,7 @@ flutter run
 - **No agregar paquetes nuevos sin preguntar primero.**
 - No modificar `firebase_options.dart`, `google-services.json` ni las Security Rules sin que se pida.
 - No cambiar el sistema de diseño ni los tokens por cuenta propia.
-- Antes de dar una tarea por terminada, ejecutar `flutter analyze` y `flutter test` y corregir lo que falle.
+- Antes de dar una tarea por terminada, ejecutar `flutter analyze` y `flutter test` (y `npm test` + `npm run typecheck` en `workers/notifications` si se tocó el Worker) y corregir lo que falle.
 - Nunca incluir secretos, claves ni datos reales de los amigos en el código o en los commits.
 - Codigo en inglés
 - Respuestas en chat en español

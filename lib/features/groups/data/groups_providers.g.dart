@@ -8,9 +8,14 @@ part of 'groups_providers.dart';
 
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
+/// Groups; joining, leaving, approving and removing also notify the
+/// people concerned.
 
 @ProviderFor(groupsRepository)
 final groupsRepositoryProvider = GroupsRepositoryProvider._();
+
+/// Groups; joining, leaving, approving and removing also notify the
+/// people concerned.
 
 final class GroupsRepositoryProvider
     extends
@@ -20,6 +25,8 @@ final class GroupsRepositoryProvider
           GroupsRepository
         >
     with $Provider<GroupsRepository> {
+  /// Groups; joining, leaving, approving and removing also notify the
+  /// people concerned.
   GroupsRepositoryProvider._()
     : super(
         from: null,
@@ -53,7 +60,7 @@ final class GroupsRepositoryProvider
   }
 }
 
-String _$groupsRepositoryHash() => r'b17a557553df054a2801b5ebc3522622a88f33bd';
+String _$groupsRepositoryHash() => r'321a211b766ed252c4b7b19ea0f7a38e7f299736';
 
 @ProviderFor(selectedGroupRepository)
 final selectedGroupRepositoryProvider = SelectedGroupRepositoryProvider._();

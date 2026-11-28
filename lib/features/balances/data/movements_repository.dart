@@ -67,6 +67,13 @@ abstract interface class MovementsRepository {
     required int limit,
   });
 
+  /// The movement [movementId] of [groupId] (any status), or `null` when it
+  /// does not exist. Opens a movement from a notification.
+  Future<LedgerMovement?> fetchMovement({
+    required String groupId,
+    required String movementId,
+  });
+
   /// Saves the new [payments] together (a payment from "Todos los grupos"
   /// becomes one movement per group). Their ids are ignored; returns the
   /// new ids in the same order.
@@ -215,6 +222,18 @@ class FirestoreMovementsRepository implements MovementsRepository {
           .handleError((Object error, StackTrace stackTrace) {
             throw _map(error, stackTrace);
           });
+
+  @override
+  Future<LedgerMovement?> fetchMovement({
+    required String groupId,
+    required String movementId,
+  }) => _guard(() async {
+    final doc = await _movements(groupId).doc(movementId).get();
+    final data = doc.data();
+    return data == null
+        ? null
+        : MovementMapper.fromFirestore(groupId, doc.id, data);
+  });
 
   @override
   Future<List<String>> registerPayments(List<LedgerMovement> payments) =>

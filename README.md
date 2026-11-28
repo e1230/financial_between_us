@@ -20,6 +20,7 @@ App Android para que un grupo de amigos registre sus salidas a comer, asigne cad
 - Propina repartida de forma proporcional a lo que consumió cada uno.
 - Saldos en tiempo real y **simplificación de deudas** (el mínimo de transferencias necesarias).
 - Registro de abonos entre miembros.
+- **Notificaciones push:** cuando alguien registra, rechaza o elimina un pago o una deuda contigo, y cuando alguien entra, pide entrar o sale de tus grupos. Desde la notificación puedes confirmar el movimiento o ir directo a rechazarlo.
 - **Auditoría completa:** nada se borra, y cada cambio queda registrado con autor y fecha.
 - Panel de análisis: gasto por mes, promedio por salida y quién paga más seguido.
 
@@ -34,6 +35,7 @@ App Android para que un grupo de amigos registre sus salidas a comer, asigne cad
 | Autenticación | Firebase Auth                   |
 | Base de datos | Cloud Firestore                 |
 | Imágenes      | Cloudinary                      |
+| Notificaciones | FCM + Cloudflare Worker (`workers/notifications`) |
 
 ## Arquitectura
 
@@ -55,6 +57,7 @@ lib/
 - **Dinero en enteros (COP):** se evita `double` para no tener errores de redondeo.
 - **Saldos calculados, no almacenados:** una sola fuente de verdad.
 - **Soft delete + log de auditoría** protegido por Firestore Security Rules: solo los miembros del grupo leen, y nadie puede editar ni borrar el historial.
+- **Push sin Cloud Functions:** un Cloudflare Worker gratuito envía los avisos con FCM HTTP v1. La app solo le cuenta qué pasó; el Worker lo verifica contra Firestore antes de avisar a nadie y cada aviso sale una sola vez.
 - **Sistema de diseño propio** basado en `ThemeExtension`: ningún color ni tamaño está fijado a mano en los widgets.
 
 ## Cómo ejecutarlo
@@ -93,12 +96,15 @@ flutter run
 > | `android/app/google-services.json` | `flutterfire configure` |
 > | `lib/firebase_options.dart` | `flutterfire configure` |
 >
+> Las notificaciones push son opcionales: para activarlas despliega el Worker (`workers/notifications/README.md`) y pon su URL en `NOTIFICATIONS_WORKER_URL` del `.env`.
+>
 > El `.env` se empaqueta dentro del APK: pon ahí solo el nombre de la nube y el *upload preset* sin firma, **nunca** el API secret de Cloudinary.
 
 ### Tests
 
 ```bash
 flutter test
+cd workers/notifications && npm test   # Worker de notificaciones
 ```
 
 ## Roadmap

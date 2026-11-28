@@ -47,4 +47,15 @@ abstract final class FirestoreCollections {
   /// `userGroups/{uid}` → `{groupIds}`: groups where the user is an active
   /// member. Lets the security rules tell whether two users share a group.
   static const String userGroups = 'userGroups';
+
+  /// `users/{uid}/fcmTokens/{token}` → `{token, createdAt, updatedAt,
+  /// deletedAt}`: devices where the user receives push notifications. Only
+  /// the owner reads and writes them; the notifications Worker reads them
+  /// with a service account.
+  static const String fcmTokens = 'fcmTokens';
+
+  /// `notificationLog/{key}`: notifications already sent, written only by
+  /// the notifications Worker (each key is sent once). Not readable by the
+  /// app.
+  static const String notificationLog = 'notificationLog';
 }

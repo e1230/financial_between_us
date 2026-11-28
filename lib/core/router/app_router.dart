@@ -49,6 +49,11 @@ abstract final class AppRoutes {
   static const String personBalance = '/balances/person/:uid';
   static const String groupQuery = 'group';
 
+  /// Opens the detail of this movement id once the balance loads (from a
+  /// notification); with [rejectQuery] = `1`, straight to rejecting it.
+  static const String movementQuery = 'movement';
+  static const String rejectQuery = 'reject';
+
   /// Full-screen image of a movement (the arguments go in `extra`).
   static const String attachment = '/attachment';
   static const String profile = '/profile';
@@ -77,10 +82,20 @@ abstract final class AppRoutes {
   /// Form to edit the payment account [accountId].
   static String editAccountFor(String accountId) => '$accounts/$accountId/edit';
 
-  /// Balance with [uid] in [scopeParam] (a group id or `all`).
-  static String personBalanceFor(String uid, String scopeParam) => Uri(
+  /// Balance with [uid] in [scopeParam] (a group id or `all`), optionally
+  /// opening the movement [movementId] (see [movementQuery]).
+  static String personBalanceFor(
+    String uid,
+    String scopeParam, {
+    String? movementId,
+    bool reject = false,
+  }) => Uri(
     path: '$balances/person/$uid',
-    queryParameters: {groupQuery: scopeParam},
+    queryParameters: {
+      groupQuery: scopeParam,
+      movementQuery: ?movementId,
+      if (movementId != null && reject) rejectQuery: '1',
+    },
   ).toString();
 
   /// Detail of the group [groupId].
@@ -390,6 +405,8 @@ CustomTransitionPage<void> _personPage(
     child: PersonBalanceScreen(
       uid: state.pathParameters['uid']!,
       scopeParam: state.uri.queryParameters[AppRoutes.groupQuery],
+      movementId: state.uri.queryParameters[AppRoutes.movementQuery],
+      openReject: state.uri.queryParameters[AppRoutes.rejectQuery] == '1',
     ),
     transitionsBuilder: (context, animation, secondaryAnimation, child) =>
         FadeTransition(

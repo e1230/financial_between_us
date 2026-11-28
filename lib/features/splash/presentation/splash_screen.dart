@@ -8,6 +8,7 @@ import '../../../core/router/app_router.dart';
 import '../../../core/startup/app_startup.dart';
 import '../../../core/startup/initial_destination.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../notifications/presentation/notifications_providers.dart';
 import '../../onboarding/presentation/walkthrough_pages.dart';
 import 'fbu_splash_animation.dart';
 import 'startup_error_view.dart';
@@ -41,9 +42,15 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   }
 
   void _navigate(InitialDestination destination) {
+    // A notification that launched the app (with a session) is only
+    // honored on the way to the Home; elsewhere it is dropped.
+    final notification = ref
+        .read(pendingNotificationRouteProvider.notifier)
+        .take();
     // DECISIÓN: `go` replaces the stack, so back never returns to the splash.
+    // A notification route builds its own stack (e.g. Saldos → person).
     context.go(switch (destination) {
-      InitialDestination.home => AppRoutes.home,
+      InitialDestination.home => notification ?? AppRoutes.home,
       InitialDestination.walkthrough => AppRoutes.walkthrough,
       InitialDestination.welcome => AppRoutes.welcome,
       InitialDestination.chooseNickname => AppRoutes.chooseUsername,

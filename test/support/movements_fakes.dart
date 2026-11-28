@@ -167,6 +167,12 @@ class FakeMovementsRepository implements MovementsRepository {
   }
 
   @override
+  Future<LedgerMovement?> fetchMovement({
+    required String groupId,
+    required String movementId,
+  }) async => movementsOf(groupId).where((m) => m.id == movementId).firstOrNull;
+
+  @override
   Future<void> markSeen({
     required LedgerMovement movement,
     required String uid,

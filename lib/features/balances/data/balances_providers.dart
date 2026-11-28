@@ -5,6 +5,8 @@ import '../../../core/data/firestore_providers.dart';
 import '../../auth/data/auth_providers.dart';
 import '../../groups/data/groups_providers.dart';
 import '../../groups/domain/group.dart';
+import '../../notifications/data/notifications_data_providers.dart';
+import '../../notifications/data/notifying_movements_repository.dart';
 import '../domain/balances_overview.dart';
 import '../domain/balances_scope.dart';
 import '../domain/debt.dart';
@@ -21,9 +23,13 @@ import 'receipt_uploader.dart';
 
 part 'balances_providers.g.dart';
 
+/// The ledger; every write also notifies the other party.
 @Riverpod(keepAlive: true)
 MovementsRepository movementsRepository(Ref ref) =>
-    FirestoreMovementsRepository(ref.watch(firebaseFirestoreProvider));
+    NotifyingMovementsRepository(
+      FirestoreMovementsRepository(ref.watch(firebaseFirestoreProvider)),
+      ref.watch(notificationDispatcherProvider),
+    );
 
 @Riverpod(keepAlive: true)
 ReceiptUploader receiptUploader(Ref ref) =>
@@ -41,6 +47,17 @@ MovementActions movementActions(Ref ref) => MovementActions(
   repository: ref.watch(movementsRepositoryProvider),
   uploader: ref.watch(receiptUploaderProvider),
 );
+
+/// The movement [movementId] of [groupId], read once: the one a
+/// notification opens. `null` when it does not exist.
+@riverpod
+Future<LedgerMovement?> movementById(
+  Ref ref,
+  String groupId,
+  String movementId,
+) => ref
+    .watch(movementsRepositoryProvider)
+    .fetchMovement(groupId: groupId, movementId: movementId);
 
 /// Events of [groupId] a debt can belong to, newest first.
 @riverpod

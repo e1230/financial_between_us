@@ -91,6 +91,39 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('opposite debts cancel each other in the pending items', (
+    tester,
+  ) async {
+    LedgerMovement debt(String id, String from, String to, int amount, int d) =>
+        LedgerMovement(
+          id: id,
+          groupId: sampleGroupId,
+          type: LedgerMovementType.debt,
+          debtorUid: from,
+          creditorUid: to,
+          amount: amount,
+          kind: DebtKind.direct,
+          concept: id == 'cine' ? 'Cine' : 'Préstamo',
+          date: DateTime(2026, 11, d, 12),
+          createdBy: sampleMe,
+          seenBy: const [sampleMe],
+        );
+    await pumpBalances(
+      tester,
+      location: _person('nico'),
+      movements: FakeMovementsRepository([
+        ...sampleMovements().where((m) => !m.involves('nico')),
+        debt('cine', sampleMe, 'nico', 5000, 20),
+        debt('prestamo', 'nico', sampleMe, 10000, 22),
+      ]),
+    );
+
+    expect(find.text('Te debe'), findsOneWidget);
+    expect(find.text('PENDIENTES · 1'), findsOneWidget);
+    expect(find.textContaining('compensada'), findsWidgets);
+    expect(find.text(r'de $ 10.000'), findsOneWidget);
+  });
+
   testWidgets('someone even shows only "Registrar deuda"', (tester) async {
     await pumpBalances(tester, location: _person('feli'));
     expect(find.text('A paz y salvo'), findsWidgets);
@@ -287,6 +320,92 @@ void main() {
       expect(find.bySemanticsLabel(RegExp('rechazado')), findsWidgets);
       await tester.pump(const Duration(seconds: 3));
       await tester.pumpAndSettle();
+    });
+
+    LedgerMovement nicoPayment() => LedgerMovement(
+      id: 'nico-pago',
+      groupId: sampleGroupId,
+      type: LedgerMovementType.payment,
+      debtorUid: 'nico',
+      creditorUid: sampleMe,
+      amount: 31500,
+      appliedTo: const [PaymentApplication(targetId: 'karaoke', amount: 31500)],
+      date: DateTime(2026, 11, 25, 19),
+      createdBy: 'nico',
+      seenBy: const ['nico'],
+    );
+
+    testWidgets('a notification opens the movement it is about', (
+      tester,
+    ) async {
+      final h = await pumpBalances(
+        tester,
+        location: AppRoutes.personBalanceFor(
+          'nico',
+          sampleGroupId,
+          movementId: 'nico-pago',
+        ),
+        movements: FakeMovementsRepository([
+          ...sampleMovements(),
+          nicoPayment(),
+        ]),
+      );
+
+      expect(find.byType(MovementDetailSheet), findsOneWidget);
+      expect(find.text('Nicolás registró un pago'), findsOneWidget);
+      expect(find.text('¿Rechazar el pago de Nicolás?'), findsNothing);
+      expect(h.movements.calls, ['markSeen:nico-pago']);
+    });
+
+    testWidgets('"Rechazar" of a notification opens the reject dialog', (
+      tester,
+    ) async {
+      final h = await pumpBalances(
+        tester,
+        location: AppRoutes.personBalanceFor(
+          'nico',
+          sampleGroupId,
+          movementId: 'nico-pago',
+          reject: true,
+        ),
+        movements: FakeMovementsRepository([
+          ...sampleMovements(),
+          nicoPayment(),
+        ]),
+      );
+
+      expect(find.text('¿Rechazar el pago de Nicolás?'), findsOneWidget);
+      await tapAndSettle(tester, find.text('No me llegó'));
+      await tapAndSettle(tester, find.text('Rechazar').last);
+      expect(h.movements.calls.last, 'reject:nico-pago:not_received');
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('"Rechazar" of a movement already rejected only shows it', (
+      tester,
+    ) async {
+      await pumpBalances(
+        tester,
+        location: AppRoutes.personBalanceFor(
+          'nico',
+          sampleGroupId,
+          movementId: 'nico-pago',
+          reject: true,
+        ),
+        movements: FakeMovementsRepository([
+          ...sampleMovements(),
+          nicoPayment().copyWith(
+            status: MovementStatus.rejected,
+            rejectedBy: sampleMe,
+            rejectedAt: DateTime(2026, 11, 25, 20),
+            rejectReason: RejectReason.notReceived,
+          ),
+        ]),
+      );
+
+      expect(find.byType(MovementDetailSheet), findsOneWidget);
+      expect(find.text('¿Rechazar el pago de Nicolás?'), findsNothing);
     });
 
     testWidgets('the author cannot reject, only delete', (tester) async {

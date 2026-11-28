@@ -151,12 +151,106 @@ void main() {
         debtOf('taxi', 'santi', 'me', 15000),
         paymentOf('p1', 'santi', 'me', 5000, applied: {'beer': 5000}),
       ]);
-      // The 5.000 go to what Santi owes, not to what the user owes.
-      expect(
-        {for (final p in ledger.pendings) p.id: p.remaining},
-        {'beer': 10000, 'taxi': 10000},
-      );
+      // The 5.000 go to what Santi owes, not to what the user owes; the
+      // 10.000 left on each side then cancel each other.
+      expect(ledger.pendings, isEmpty);
+      expect(ledger.offsetIds, {'beer', 'taxi'});
       expect(ledger.balance, 0);
+    });
+
+    group('opposite debts offset each other', () {
+      test('only the bigger one remains, with the difference', () {
+        final ledger = _ledger([
+          debtOf('beer', 'me', 'santi', 5000, day: 2),
+          debtOf('loan', 'santi', 'me', 10000, day: 5),
+        ]);
+        final loan = ledger.pendings.single;
+        expect(loan.id, 'loan');
+        expect(loan.remaining, 5000);
+        expect(loan.offset, 5000);
+        expect(loan.isPartiallyOffset, isTrue);
+        expect(loan.isPartiallyPaid, isFalse);
+        expect(loan.isReduced, isTrue);
+        expect(loan.paidFraction, 0.5);
+        expect(ledger.offsetIds, {'beer'});
+        expect(ledger.balance, 5000);
+        expect(ledger.pendingsOwedBy('me'), isEmpty);
+      });
+
+      test('equal debts leave nothing pending', () {
+        final ledger = _ledger([
+          debtOf('a', 'me', 'santi', 8000),
+          debtOf('b', 'santi', 'me', 8000),
+        ]);
+        expect(ledger.pendings, isEmpty);
+        expect(ledger.offsetIds, {'a', 'b'});
+        expect(ledger.balance, 0);
+      });
+
+      test('the oldest items are cancelled first', () {
+        final ledger = _ledger([
+          debtOf('old', 'santi', 'me', 4000, day: 1),
+          debtOf('new', 'santi', 'me', 6000, day: 3),
+          debtOf('mine', 'me', 'santi', 7000, day: 2),
+        ]);
+        expect(ledger.offsetIds, {'old', 'mine'});
+        final left = ledger.pendings.single;
+        expect(left.id, 'new');
+        expect(left.remaining, 3000);
+        expect(ledger.balance, 3000);
+      });
+
+      test('payments apply first; only what is left is offset', () {
+        final ledger = _ledger([
+          debtOf('loan', 'santi', 'me', 10000, day: 1),
+          debtOf('beer', 'me', 'santi', 5000, day: 2),
+          paymentOf('p1', 'santi', 'me', 2000, day: 3, applied: {'loan': 2000}),
+        ]);
+        final loan = ledger.pendings.single;
+        expect(loan.remaining, 3000);
+        expect(loan.paid, 2000);
+        expect(loan.offset, 5000);
+        expect(ledger.balance, 3000);
+      });
+
+      test('a payment without a target settles before anything is offset', () {
+        final ledger = _ledger([
+          paymentOf('p1', 'santi', 'me', 6000, day: 1),
+          debtOf('pizza', 'santi', 'me', 10000, day: 2),
+          debtOf('beer', 'me', 'santi', 1000, day: 3),
+        ]);
+        final pizza = ledger.pendings.single;
+        expect(pizza.id, 'pizza');
+        expect(pizza.paid, 6000);
+        expect(pizza.offset, 1000);
+        expect(pizza.remaining, 3000);
+        expect(ledger.offsetIds, {'beer'});
+      });
+
+      test('rejecting one of them undoes the offset', () {
+        final ledger = _ledger([
+          debtOf('beer', 'me', 'santi', 5000, status: MovementStatus.rejected),
+          debtOf('loan', 'santi', 'me', 10000),
+        ]);
+        expect(ledger.pendings.single.remaining, 10000);
+        expect(ledger.offsetIds, isEmpty);
+      });
+
+      test('debts of different groups do not offset', () {
+        final a = PairLedger.compute(
+          me: 'me',
+          other: 'santi',
+          movements: [debtOf('beer', 'me', 'santi', 5000, groupId: 'g1')],
+        );
+        final b = PairLedger.compute(
+          me: 'me',
+          other: 'santi',
+          movements: [debtOf('loan', 'santi', 'me', 10000, groupId: 'g2')],
+        );
+        final all = PairLedger.merge(me: 'me', other: 'santi', ledgers: [a, b]);
+        expect(all.pendings.map((p) => p.id), ['beer', 'loan']);
+        expect(all.balance, 5000);
+      });
     });
 
     test('ignores movements of other people', () {

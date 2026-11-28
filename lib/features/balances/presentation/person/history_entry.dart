@@ -80,7 +80,8 @@ final class HistoryEntry {
           ? BalancesStrings.rejectedByYou(when)
           : BalancesStrings.rejectedBy(otherFirst, when);
     } else if (settled) {
-      detail = '$date · ${BalancesStrings.settledDebt}';
+      detail =
+          '$date · ${ledger.offsetIds.contains(m.id) ? BalancesStrings.offsetDebt : BalancesStrings.settledDebt}';
     } else if (m.isDebt) {
       final String who;
       if (m.kind == DebtKind.event) {

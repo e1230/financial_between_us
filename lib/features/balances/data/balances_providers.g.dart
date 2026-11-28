@@ -8,9 +8,12 @@ part of 'balances_providers.dart';
 
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
+/// The ledger; every write also notifies the other party.
 
 @ProviderFor(movementsRepository)
 final movementsRepositoryProvider = MovementsRepositoryProvider._();
+
+/// The ledger; every write also notifies the other party.
 
 final class MovementsRepositoryProvider
     extends
@@ -20,6 +23,7 @@ final class MovementsRepositoryProvider
           MovementsRepository
         >
     with $Provider<MovementsRepository> {
+  /// The ledger; every write also notifies the other party.
   MovementsRepositoryProvider._()
     : super(
         from: null,
@@ -55,7 +59,7 @@ final class MovementsRepositoryProvider
 }
 
 String _$movementsRepositoryHash() =>
-    r'7e3f6f97db5cd715a4886a4f8dd4b7a9cefd8ead';
+    r'766fc818f9bfac0d5c7324d1701a72e7912b43f2';
 
 @ProviderFor(receiptUploader)
 final receiptUploaderProvider = ReceiptUploaderProvider._();
@@ -229,6 +233,96 @@ final class MovementActionsProvider
 }
 
 String _$movementActionsHash() => r'559d7cf116bbc01e8551750068289d7b2885c757';
+
+/// The movement [movementId] of [groupId], read once: the one a
+/// notification opens. `null` when it does not exist.
+
+@ProviderFor(movementById)
+final movementByIdProvider = MovementByIdFamily._();
+
+/// The movement [movementId] of [groupId], read once: the one a
+/// notification opens. `null` when it does not exist.
+
+final class MovementByIdProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<LedgerMovement?>,
+          LedgerMovement?,
+          FutureOr<LedgerMovement?>
+        >
+    with $FutureModifier<LedgerMovement?>, $FutureProvider<LedgerMovement?> {
+  /// The movement [movementId] of [groupId], read once: the one a
+  /// notification opens. `null` when it does not exist.
+  MovementByIdProvider._({
+    required MovementByIdFamily super.from,
+    required (String, String) super.argument,
+  }) : super(
+         retry: null,
+         name: r'movementByIdProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$movementByIdHash();
+
+  @override
+  String toString() {
+    return r'movementByIdProvider'
+        ''
+        '$argument';
+  }
+
+  @$internal
+  @override
+  $FutureProviderElement<LedgerMovement?> $createElement(
+    $ProviderPointer pointer,
+  ) => $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<LedgerMovement?> create(Ref ref) {
+    final argument = this.argument as (String, String);
+    return movementById(ref, argument.$1, argument.$2);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is MovementByIdProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$movementByIdHash() => r'af02857d885f7a7cbef4452968d2061912bedc61';
+
+/// The movement [movementId] of [groupId], read once: the one a
+/// notification opens. `null` when it does not exist.
+
+final class MovementByIdFamily extends $Family
+    with
+        $FunctionalFamilyOverride<FutureOr<LedgerMovement?>, (String, String)> {
+  MovementByIdFamily._()
+    : super(
+        retry: null,
+        name: r'movementByIdProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  /// The movement [movementId] of [groupId], read once: the one a
+  /// notification opens. `null` when it does not exist.
+
+  MovementByIdProvider call(String groupId, String movementId) =>
+      MovementByIdProvider._(argument: (groupId, movementId), from: this);
+
+  @override
+  String toString() => r'movementByIdProvider';
+}
 
 /// Events of [groupId] a debt can belong to, newest first.
 

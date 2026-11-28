@@ -1,0 +1,13 @@
+# Cloudflare Worker that sends the push notifications (FCM HTTP v1).
+# Deploy with `npm run deploy`. The service account goes in a secret:
+#   npx wrangler secret put FIREBASE_SERVICE_ACCOUNT   (paste the whole JSON)
+name = "fbu-notifications"
+main = "src/index.ts"
+compatibility_date = "2026-11-01"
+workers_dev = true
+
+[vars]
+FIREBASE_PROJECT_ID = "financial-between-us"
+
+[observability]
+enabled = true

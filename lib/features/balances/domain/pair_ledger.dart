@@ -27,6 +27,7 @@ final class PendingItem {
     required this.original,
     required this.remaining,
     required this.source,
+    this.offset = 0,
   });
 
   /// The debt id, or [creditIdFor] the payment that produced a credit.
@@ -49,19 +50,30 @@ final class PendingItem {
   /// The debt, or the payment that produced the credit.
   final LedgerMovement source;
 
-  /// Whole pesos already paid.
-  int get paid => original - remaining;
+  /// Whole pesos cancelled against what the other party owed back
+  /// ("compensada"), not paid with money.
+  final int offset;
+
+  /// Whole pesos already paid with payments.
+  int get paid => original - remaining - offset;
 
   /// Whether a payment covered part of it ("abonó").
   bool get isPartiallyPaid => paid > 0;
 
-  /// Share already paid, from 0 to 1.
-  double get paidFraction => original == 0 ? 0 : paid / original;
+  /// Whether part of it was cancelled against an opposite debt.
+  bool get isPartiallyOffset => offset > 0;
+
+  /// Less than [original] is still owed (paid or offset).
+  bool get isReduced => remaining < original;
+
+  /// Share already paid or offset, from 0 to 1.
+  double get paidFraction =>
+      original == 0 ? 0 : (original - remaining) / original;
 
   /// Id of the credit produced by the payment [paymentId].
   static String creditIdFor(String paymentId) => 'credit:$paymentId';
 
-  PendingItem _withRemaining(int value) => PendingItem(
+  PendingItem _withRemaining(int value, {int offsetBy = 0}) => PendingItem(
     id: id,
     groupId: groupId,
     kind: kind,
@@ -72,6 +84,7 @@ final class PendingItem {
     original: original,
     remaining: value,
     source: source,
+    offset: offset + offsetBy,
   );
 
   @override
@@ -90,15 +103,24 @@ final class PendingItem {
 ///    active, or it was already paid) goes to the oldest pending items in
 ///    the same direction.
 /// 4. Whatever is still left becomes a credit the receiver owes the payer.
+/// 5. What is still pending in one direction cancels what is pending in the
+///    other ("compensada"), oldest first on both sides, so only one
+///    direction is left: if A owes B 5.000 and B owes A 10.000, only B's
+///    debt remains, with 5.000 to go.
 // DECISIÓN: an orphan payment (its debt was rejected or deleted) first
 // settles the payer's other pending items, oldest first; only what remains
 // shows up as "Saldo a favor", a pending item in the opposite direction.
+// DECISIÓN: debts offset each other only within one group (a ledger is
+// computed per group); "Todos los grupos" adds up the balances but keeps
+// each group's items. The offset is computed, never written: rejecting or
+// deleting either debt undoes it.
 final class PairLedger {
   const PairLedger({
     required this.me,
     required this.other,
     required this.pendings,
     required this.history,
+    this.offsetIds = const {},
   });
 
   /// Ledger of [me] with [other] from the [movements] of one group (others
@@ -182,6 +204,8 @@ final class PairLedger {
       }
     }
 
+    _offset(open, me);
+
     final pendings = [
       for (final item in open)
         if (item.remaining > 0) item,
@@ -192,7 +216,37 @@ final class PairLedger {
       other: other,
       pendings: pendings,
       history: _newestFirst(mine.where((m) => !m.isDeleted)),
+      offsetIds: {
+        for (final item in open)
+          if (item.remaining == 0 && item.offset > 0) item.id,
+      },
     );
+  }
+
+  /// Step 5: cancels the items [me] owes against the ones owed to [me],
+  /// oldest first, in place.
+  static void _offset(List<PendingItem> open, String me) {
+    final order = [for (var i = 0; i < open.length; i++) i]
+      ..sort((a, b) => _byDate(open[a], open[b]));
+    final owedToMe = [
+      for (final i in order)
+        if (open[i].creditorUid == me && open[i].remaining > 0) i,
+    ];
+    final iOwe = [
+      for (final i in order)
+        if (open[i].debtorUid == me && open[i].remaining > 0) i,
+    ];
+    var a = 0;
+    var b = 0;
+    while (a < owedToMe.length && b < iOwe.length) {
+      final x = open[owedToMe[a]];
+      final y = open[iOwe[b]];
+      final take = x.remaining < y.remaining ? x.remaining : y.remaining;
+      open[owedToMe[a]] = x._withRemaining(x.remaining - take, offsetBy: take);
+      open[iOwe[b]] = y._withRemaining(y.remaining - take, offsetBy: take);
+      if (open[owedToMe[a]].remaining == 0) a++;
+      if (open[iOwe[b]].remaining == 0) b++;
+    }
   }
 
   /// One ledger for the same pair across several groups.
@@ -207,14 +261,20 @@ final class PairLedger {
       other: other,
       pendings: [for (final l in list) ...l.pendings]..sort(_byDate),
       history: _newestFirst([for (final l in list) ...l.history]),
+      offsetIds: {for (final l in list) ...l.offsetIds},
     );
   }
 
   final String me;
   final String other;
 
-  /// What is still owed in either direction, oldest first.
+  /// What is still owed in one direction per group, oldest first (opposite
+  /// debts of a group already cancelled each other).
   final List<PendingItem> pendings;
+
+  /// Debts (and credits) fully cancelled against opposite ones: shown as
+  /// "compensada" instead of "saldada".
+  final Set<String> offsetIds;
 
   /// Active and rejected movements (deleted ones are hidden), newest first.
   final List<LedgerMovement> history;

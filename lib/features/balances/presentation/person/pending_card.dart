@@ -105,7 +105,7 @@ class _PendingRow extends StatelessWidget {
         ? BalancesStrings.credit
         : item.title;
     final date = BalancesDates.short(item.date);
-    final String? caption = item.isPartiallyPaid
+    final String? caption = item.isReduced
         ? BalancesStrings.ofTotal(item.original)
         : item.kind == PendingKind.event
         ? (item.creditorUid == me
@@ -160,9 +160,18 @@ class _PendingRow extends StatelessWidget {
                             children: [
                               TypeChip(chip),
                               Text(
-                                item.isPartiallyPaid
-                                    ? '$date · ${BalancesStrings.partiallyPaid}'
-                                    : date,
+                                switch ((
+                                  item.isPartiallyPaid,
+                                  item.isPartiallyOffset,
+                                )) {
+                                  (true, true) =>
+                                    '$date · ${BalancesStrings.paidAndOffset}',
+                                  (true, false) =>
+                                    '$date · ${BalancesStrings.partiallyPaid}',
+                                  (false, true) =>
+                                    '$date · ${BalancesStrings.partiallyOffset}',
+                                  (false, false) => date,
+                                },
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: styles.rowDetail,
@@ -194,7 +203,7 @@ class _PendingRow extends StatelessWidget {
                   ],
                 ),
               ),
-              if (item.isPartiallyPaid)
+              if (item.isReduced)
                 Positioned(
                   left: BalancesMetrics.dividerInset,
                   right: BalancesMetrics.rowPaddingH,

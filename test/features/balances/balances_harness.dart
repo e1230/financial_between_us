@@ -7,7 +7,6 @@ import 'package:financial_between_us/features/balances/data/balances_providers.d
 import 'package:financial_between_us/features/groups/data/groups_providers.dart';
 import 'package:financial_between_us/features/groups/data/selected_group_repository.dart';
 import 'package:financial_between_us/features/groups/domain/group.dart';
-import 'package:financial_between_us/features/home/data/home_activity_repository.dart';
 import 'package:financial_between_us/features/home/data/home_providers.dart';
 import 'package:financial_between_us/features/payment_accounts/data/payment_accounts_providers.dart';
 import 'package:financial_between_us/features/payment_accounts/domain/payment_account.dart';
@@ -23,6 +22,7 @@ import '../../support/fakes.dart';
 import '../../support/group_fakes.dart';
 import '../../support/movements_fakes.dart';
 import '../../support/payment_accounts_fakes.dart';
+import '../../support/home_fakes.dart';
 
 const UserProfile balancesMe = UserProfile(
   uid: sampleMe,

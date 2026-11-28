@@ -11,9 +11,10 @@ import 'recent_movements.dart';
 
 part 'home_providers.g.dart';
 
+/// The Home chart, from the movements of the group.
 @Riverpod(keepAlive: true)
 HomeActivityRepository homeActivityRepository(Ref ref) =>
-    FakeHomeActivityRepository();
+    MovementsHomeActivityRepository(ref.watch(movementsRepositoryProvider));
 
 /// Period of the Home chart; kept while the app is open.
 @Riverpod(keepAlive: true)

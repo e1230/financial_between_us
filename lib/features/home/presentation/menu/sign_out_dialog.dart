@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
@@ -6,8 +8,10 @@ import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/widgets/fbu_dialog.dart';
 import '../../../../core/widgets/fbu_pill_button.dart';
+import '../../../auth/data/auth_providers.dart';
 import '../../../auth/data/auth_repository.dart';
 import '../../../auth/presentation/widgets/auth_banner.dart';
+import '../../../notifications/data/notifications_data_providers.dart';
 import '../dialogs/dialog_parts.dart';
 import '../home_strings.dart';
 
@@ -34,6 +38,7 @@ class _SignOutDialogState extends ConsumerState<SignOutDialog> {
       _busy = true;
       _failed = false;
     });
+    await _stopPushes();
     try {
       await ref.read(authRepositoryProvider).signOut();
     } catch (_) {
@@ -49,6 +54,26 @@ class _SignOutDialogState extends ConsumerState<SignOutDialog> {
     final router = GoRouter.of(context);
     Navigator.of(context).pop();
     router.go(AppRoutes.welcome);
+  }
+
+  /// This device stops receiving the user's notifications (it must happen
+  /// while still signed in). Best effort: it never blocks signing out.
+  Future<void> _stopPushes() async {
+    try {
+      final uid = ref.read(firebaseAuthProvider).currentUser?.uid;
+      if (uid == null) return;
+      await ref
+          .read(pushRegistrationProvider)
+          .unregister(uid)
+          .timeout(const Duration(seconds: 5));
+    } catch (error, stackTrace) {
+      developer.log(
+        'Could not unregister push notifications',
+        name: 'fbu.notifications',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
   @override

@@ -6,6 +6,7 @@ import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/utils/money_format.dart';
 import '../../../../core/widgets/fbu_primary_button.dart';
+import '../../../notifications/presentation/notifications_providers.dart';
 import '../../../payment_accounts/presentation/widgets/payment_account_logo.dart';
 import '../../data/balances_providers.dart';
 import '../../domain/ledger_movement.dart';
@@ -24,13 +25,16 @@ import 'reject_dialog.dart';
 enum MovementSheetOutcome { rejected, deleted }
 
 /// Opens the detail of [movement] between [me] and the other person. It is
-/// marked as seen. [related] gives the debts a payment settled.
+/// marked as seen. [related] gives the debts a payment settled. With
+/// [openReject] (the "Rechazar" of a notification) the reject dialog opens
+/// right away, if it can still be rejected.
 Future<MovementSheetOutcome?> showMovementDetailSheet(
   BuildContext context, {
   required LedgerMovement movement,
   required String me,
   required String otherFirstName,
   required Map<String, LedgerMovement> related,
+  bool openReject = false,
 }) => showBalancesSheet<MovementSheetOutcome>(
   context: context,
   builder: (_) => MovementDetailSheet(
@@ -38,6 +42,7 @@ Future<MovementSheetOutcome?> showMovementDetailSheet(
     me: me,
     otherFirstName: otherFirstName,
     related: related,
+    openReject: openReject,
   ),
 );
 
@@ -52,12 +57,14 @@ class MovementDetailSheet extends ConsumerStatefulWidget {
     required this.me,
     required this.otherFirstName,
     required this.related,
+    this.openReject = false,
   });
 
   final LedgerMovement movement;
   final String me;
   final String otherFirstName;
   final Map<String, LedgerMovement> related;
+  final bool openReject;
 
   @override
   ConsumerState<MovementDetailSheet> createState() =>
@@ -75,6 +82,13 @@ class _MovementDetailSheetState extends ConsumerState<MovementDetailSheet> {
           .read(movementActionsProvider)
           .markSeen(movement: m, me: widget.me)
           .ignore();
+    }
+    // Its notification, if still there, is answered by opening it.
+    ref.read(localNotificationsProvider).cancelMovement(m.id).ignore();
+    if (widget.openReject && m.canReject(widget.me)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _reject();
+      });
     }
   }
 

@@ -47,11 +47,21 @@ import 'person_accounts_card.dart';
 /// accounts (when the user owes them), the history and the actions.
 ///
 /// [scopeParam] is a group id or `all` (see [BalancesScope.fromParam]).
+/// From a notification, [movementId] opens that movement as soon as the
+/// balance loads and [openReject] goes straight to rejecting it.
 class PersonBalanceScreen extends ConsumerStatefulWidget {
-  const PersonBalanceScreen({super.key, required this.uid, this.scopeParam});
+  const PersonBalanceScreen({
+    super.key,
+    required this.uid,
+    this.scopeParam,
+    this.movementId,
+    this.openReject = false,
+  });
 
   final String uid;
   final String? scopeParam;
+  final String? movementId;
+  final bool openReject;
 
   @override
   ConsumerState<PersonBalanceScreen> createState() =>
@@ -65,6 +75,10 @@ class _PersonBalanceScreenState extends ConsumerState<PersonBalanceScreen> {
   HistoryFilter _filter = HistoryFilter.all;
   Set<String> _highlighted = const {};
   Timer? _highlightTimer;
+
+  /// The movement of [PersonBalanceScreen.movementId] was opened (or could
+  /// not be): only once.
+  bool _openedNotified = false;
 
   late final BalancesScope _scope = BalancesScope.fromParam(widget.scopeParam);
 
@@ -192,8 +206,9 @@ class _PersonBalanceScreenState extends ConsumerState<PersonBalanceScreen> {
   Future<void> _openMovement(
     LedgerMovement movement,
     Map<String, LedgerMovement> related,
-    UserProfile? other,
-  ) async {
+    UserProfile? other, {
+    bool openReject = false,
+  }) async {
     final first = PersonNames.first(other);
     final me = _me;
     final outcome = await showMovementDetailSheet(
@@ -202,6 +217,7 @@ class _PersonBalanceScreenState extends ConsumerState<PersonBalanceScreen> {
       me: me,
       otherFirstName: first,
       related: related,
+      openReject: openReject,
     );
     if (!mounted) return;
     // Older pages are not live: reflect the change there too.
@@ -230,6 +246,27 @@ class _PersonBalanceScreenState extends ConsumerState<PersonBalanceScreen> {
       case null:
         break;
     }
+  }
+
+  /// Opens the movement a notification points to, once it is read (the
+  /// live copy when the balance already has it).
+  void _maybeOpenNotified(
+    String me,
+    Map<String, LedgerMovement> related,
+    UserProfile? other,
+  ) {
+    final movementId = widget.movementId;
+    final groupId = _scope.groupId;
+    if (_openedNotified || movementId == null || groupId == null) return;
+    final fetched = ref.watch(movementByIdProvider(groupId, movementId));
+    if (fetched.isLoading) return;
+    _openedNotified = true;
+    final movement = related[movementId] ?? fetched.value;
+    if (movement == null || !movement.involves(me)) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _openMovement(movement, related, other, openReject: widget.openReject);
+    });
   }
 
   void _seeAll() {
@@ -306,6 +343,7 @@ class _PersonBalanceScreenState extends ConsumerState<PersonBalanceScreen> {
       final related = {
         for (final m in [...ledger.history, ...history.items]) m.id: m,
       };
+      _maybeOpenNotified(me, related, other);
       final entries = [
         for (final m in history.items)
           HistoryEntry.of(

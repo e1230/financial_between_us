@@ -163,6 +163,41 @@ service cloud.firestore {
           && request.resource.data.timestamp == request.time;
         allow update, delete: if false;
       }
+
+      // users/{uid}/fcmTokens/{token} → { token, createdAt, updatedAt, deletedAt }
+      // Devices where the user receives push notifications. Only the owner
+      // reads and writes them; the notifications Worker reads them (and
+      // retires the ones FCM no longer knows) with a service account, which
+      // these rules do not apply to. Retired with `deletedAt`, never deleted.
+      match /fcmTokens/{token} {
+        function t() {
+          return request.resource.data;
+        }
+
+        allow read: if isOwner(uid);
+        allow create: if isOwner(uid)
+          && t().keys().hasOnly(['token', 'createdAt', 'updatedAt', 'deletedAt'])
+          && t().token == token
+          && t().createdAt == request.time
+          && t().updatedAt == request.time
+          && t().deletedAt == null;
+        // Seen again on this device (deletedAt back to null) or retired.
+        allow update: if isOwner(uid)
+          && t().diff(resource.data).affectedKeys().hasOnly(['updatedAt', 'deletedAt'])
+          && t().updatedAt == request.time
+          && (t().deletedAt == null || t().deletedAt == request.time);
+        allow delete: if false;
+      }
+    }
+
+    // ---------------------------------------------------------------
+    // notificationLog/{key} → { type, groupId, actorUid, recipients, sentAt }
+    // Notifications already sent, so each one goes out once. Written only
+    // by the notifications Worker (service account); the app never reads
+    // or writes it.
+    // ---------------------------------------------------------------
+    match /notificationLog/{key} {
+      allow read, write: if false;
     }
 
     // ---------------------------------------------------------------
